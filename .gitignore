@@ -1,0 +1,12 @@
+__pycache__/
+/laki-tv.html
+/preview.html
+/template.html
+/site/
+/out/
+/jakelu/
+/test/fixture.html
+/test/fixture_data.json
+/test/*.png
+/test/sec_page.html
+.DS_Store

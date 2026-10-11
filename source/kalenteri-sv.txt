@@ -1,0 +1,176 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//LAKI-TV//FI
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:LAKI-TV
+X-PUBLISHED-TTL:PT12H
+BEGIN:VEVENT
+UID:eu-2026-10-08@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261008
+DTEND;VALUE=DATE:20261009
+SUMMARY:EU: 1 rättsakter börjar
+DESCRIPTION:• Personlig skyddsutrustning (Genomförandebeslut (EU) 2024/2
+ 599)
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#p801
+END:VEVENT
+BEGIN:VEVENT
+UID:dl-OM07000/2024-lapsirauha@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261015
+DTEND;VALUE=DATE:20261016
+SUMMARY:Remisstiden går ut: Barnfrid som skärpningsgrund
+DESCRIPTION:Justitieministeriet\nMinisteriet ber om synpunkter på ett för
+ slag om att våld skulle kunna ge strängare straff om gärningen begås i
+  familjen eller i en annan nära relation så att ett barn ser eller hör 
+ det. Med barnfrid avses barnets rätt att växa upp i trygghet utan att up
+ pleva eller se våld.\nhttps://valtioneuvosto.fi/-/1410853/lapsirauharikos
+ -lausuntokierroksella
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#j=OM070%3A00%2F2024-l
+ apsirauha
+END:VEVENT
+BEGIN:VEVENT
+UID:eu-2026-10-15@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261015
+DTEND;VALUE=DATE:20261016
+SUMMARY:EU: 2 rättsakter börjar
+DESCRIPTION:• Avskogning: DDS-försäkringar (Genomförandeförordning (E
+ U) 2026/1565)\n• Förteckning över skadegörare (Genomförandeförordni
+ ng (EU) 2026/826)
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#p801
+END:VEVENT
+BEGIN:VEVENT
+UID:dl-lausunto-sm-sailoonotto-2026@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261016
+DTEND;VALUE=DATE:20261017
+SUMMARY:Remisstiden går ut: Utlänningslagen: tagande i förvar
+DESCRIPTION:Inrikesministeriet\nRegeringen bereder ändringar i när en utl
+ änning får hållas i förvar och hur man kan överklaga om man avvisas v
+ id gränsen. Vem som helst kan lämna utlåtande senast 16.10.2026.\nhttps
+ ://valtioneuvosto.fi/-/1410869/sailoonottoon-ja-paasyn-epaamiseen-liittyvi
+ a-ulkomaalaislain-muutoksia-lausuntokierrokselle
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#j=lausunto-sm-sailoon
+ otto-2026
+END:VEVENT
+BEGIN:VEVENT
+UID:dl-lausunto-mmm-metsastyslaki-2026@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261020
+DTEND;VALUE=DATE:20261021
+SUMMARY:Remisstiden går ut: Jaktlagen: organisationers besvär
+DESCRIPTION:Jord- och skogsbruksministeriet\nMinisteriet föreslår att en 
+ natur- eller miljöorganisation bara ska få överklaga beslut om jakt om 
+ den har en etablerad verksamhet i området och har varit registrerad i min
+ st tre år. Man kan lämna utlåtande senast 20.10.2026. Det är ännu bar
+ a ett förslag.\nhttps://valtioneuvosto.fi/-/1410837/maa-ja-metsatalousmin
+ isterio-pyytaa-lausuntoja-metsastyslain-ja-riistahallintolain-muutoksista
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#j=lausunto-mmm-metsas
+ tyslaki-2026
+END:VEVENT
+BEGIN:VEVENT
+UID:dl-tem-2026-09-30-metaani@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261021
+DTEND;VALUE=DATE:20261022
+SUMMARY:Remisstiden går ut: Tillsyn över metanförordningen
+DESCRIPTION:Arbets- och näringsministeriet\nMinisteriet ber om synpunkter 
+ på ett lagförslag om att Tukes ska övervaka EU:s regler om metanutsläp
+ p inom energisektorn. Ett företag som bryter mot reglerna kunde till exem
+ pel få en avgift eller en varning. Utlåtanden kan ges till och med 21.10
+ .2026.\nhttps://valtioneuvosto.fi/-/1410877/eu-n-metaanipaastoasetuksen-va
+ lvontaa-ja-seuraamuksia-koskeva-lakiesitys-lausuntokierrokselle
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#j=tem-2026-09-30-meta
+ ani
+END:VEVENT
+BEGIN:VEVENT
+UID:dl-VM08400/2025@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261021
+DTEND;VALUE=DATE:20261022
+SUMMARY:Remisstiden går ut: Beskattning av kb-fonder
+DESCRIPTION:Finansministeriet\nMinisteriet ber om synpunkter på ett försl
+ ag som skulle ändra beskattningen av kapitalfonder i form av kommanditbol
+ ag. Fondens inkomster skulle beskattas direkt hos investerarna\, ungefär 
+ som om de hade investerat själva. Ändringen skulle främst gälla fonder
+  som grundas från början av 2028.\nhttps://valtioneuvosto.fi/-/10623/hal
+ litus-esittaa-uudistusta-kommandiittiyhtiomuotoisten-rahastojen-verotuksee
+ n
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#j=VM084%3A00%2F2025
+END:VEVENT
+BEGIN:VEVENT
+UID:vt-2026-11-20@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261120
+DTEND;VALUE=DATE:20261121
+SUMMARY:I kraft: 1 lag
+DESCRIPTION:• Konsumentkrediter och förmedlare (32/2026)
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#p800
+END:VEVENT
+BEGIN:VEVENT
+UID:eu-2026-11-20@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261120
+DTEND;VALUE=DATE:20261121
+SUMMARY:EU: 1 rättsakter börjar
+DESCRIPTION:• Konsumentkreditdirektivet (Direktiv (EU) 2023/2225)
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#p801
+END:VEVENT
+BEGIN:VEVENT
+UID:eu-2026-11-29@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261129
+DTEND;VALUE=DATE:20261130
+SUMMARY:EU: 1 rättsakter börjar
+DESCRIPTION:• Euro 7-utsläppsnormen (Förordning (EU) 2024/1257)
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#p801
+END:VEVENT
+BEGIN:VEVENT
+UID:eu-2026-12-02@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261202
+DTEND;VALUE=DATE:20261203
+SUMMARY:EU: 2 rättsakter börjar
+DESCRIPTION:• Plattformsdirektivet (Direktiv (EU) 2024/2831)\n• AI-för
+ ordningen: vattenmärken (Förordning (EU) 2024/1689 (muut.))
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#p801
+END:VEVENT
+BEGIN:VEVENT
+UID:eu-2026-12-09@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261209
+DTEND;VALUE=DATE:20261210
+SUMMARY:EU: 1 rättsakter börjar
+DESCRIPTION:• Produktansvarsdirektivet (Direktiv (EU) 2024/2853)
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#p801
+END:VEVENT
+BEGIN:VEVENT
+UID:eu-2026-12-30@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20261230
+DTEND;VALUE=DATE:20261231
+SUMMARY:EU: 1 rättsakter börjar
+DESCRIPTION:• Avskogning\, stora aktörer (Förordning (EU) 2023/1115 (mu
+ ut.))
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#p801
+END:VEVENT
+BEGIN:VEVENT
+UID:vt-2027-01-01@laki-tv
+DTSTAMP:20261004T130426Z
+DTSTART;VALUE=DATE:20270101
+DTEND;VALUE=DATE:20270102
+SUMMARY:I kraft: 58 lagar
+DESCRIPTION:• FPA:s rehabiliteringsförmåner (620/2026)\n• Ny kärnene
+ rgilag (776/2026)\n• Integrationslagen (706/2026)\n• Medborgarskapslag
+ en (552/2026)\n• Ungdomsstraff (SL 6 kap.) (395/2026)\n• Polisförvalt
+ ningen (377/2026)\n• Mervärdesskattelagen (Åland) (597/2026)\n• Väl
+ färdsområdenas finansiering (690/2026)\n• Medling och Rättstjänstver
+ ket (315/2026)\n• Avfalls- och förv.domstolslagen (311/2026)\n• Inkom
+ st till fast driftställe (323/2026)\n• Inkomstskattelagen (547/2026)\n
+ • Arbetspensionssystemet (560/2026)\n• Trafiktjänster (614/2026)\n•
+  Hälso- och sjukvårdslagen (1395/2025)
+URL:https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js#p800
+END:VEVENT
+END:VCALENDAR

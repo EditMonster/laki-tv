@@ -1,0 +1,128 @@
+
+<h1 class="sr" data-sv="LAKI-TV – juridisk text-tv" data-en="LAKI-TV – legal teletext">LAKI-TV – juridinen teksti-TV</h1>
+<p id="live" class="sr" aria-live="polite"></p>
+<main class="app">
+  <div class="tv" id="tv">
+    <div class="screen" id="screen" role="region" aria-label="Teksti-TV-ruutu" data-sv-aria="Text-tv-skärm" data-en-aria="Teletext screen">
+      <div class="rows caps" id="rows"></div>
+    </div>
+    <div class="glass" aria-hidden="true"></div>
+  </div>
+
+  <div class="remote" role="group" aria-label="Kaukosäädin" data-sv-aria="Fjärrkontroll" data-en-aria="Remote control">
+    <div class="rm-led">
+      <span class="led" id="led" aria-hidden="true"></span>
+      <span class="rm-now" id="rmNow">Sivu 100</span>
+      <button type="button" class="k xs" id="kSearch" title="Hae juttuja (/ tai F)" data-sv-title="Sök nyheter (/ eller F)" data-en-title="Search items (/ or F)" aria-haspopup="dialog" data-sv="SÖK" data-en="SEARCH">HAKU</button>
+      <button type="button" class="k xs on" id="kCase" title="Isot kirjaimet päälle / pois (C)" data-sv-title="Versaler på / av (C)" data-en-title="Capitals on / off (C)" aria-pressed="true">ABC</button>
+      <div class="rm-filter" id="rmFilter" hidden>
+        <span id="rmFilterText"></span>
+        <button type="button" id="rmFilterClear" aria-label="Poista aihesuodatin" data-sv-aria="Ta bort ämnesfiltret" data-en-aria="Remove the topic filter" data-sv="Ta bort" data-en="Remove">Poista</button>
+      </div>
+    </div>
+    <div class="rm-opt">
+      <div class="seg" role="group" aria-label="Kieli – Språk – Language">
+        <button type="button" class="k xs on" id="kFi" lang="fi" aria-pressed="true" title="Suomeksi">FI</button>
+        <button type="button" class="k xs" id="kSv" lang="sv" aria-pressed="false" title="På svenska">SV</button>
+        <button type="button" class="k xs" id="kEn" lang="en" aria-pressed="false" title="In English">EN</button>
+      </div>
+      <button type="button" class="k xs sub" id="kSub" title="Jakelu: kalenteri, syötteet ja viikkokatsaus" data-sv-title="Distribution: kalender, flöden och veckoöversikt" data-en-title="Distribution: calendar, feeds and weekly review" aria-haspopup="dialog" data-sv="FLÖDEN" data-en="FEEDS">JAKELU</button>
+    </div>
+    <div class="rm-fn">
+      <button type="button" class="k sm" id="kIndex" title="Etusivu (I)" data-sv-title="Förstasidan (I)" data-en-title="Home page (I)">INDEX</button>
+      <button type="button" class="k sm" id="kList" title="Kanavaluettelo (L)" data-sv-title="Kanallista (L)" data-en-title="Channel list (L)" aria-haspopup="dialog" data-sv="LISTA" data-en="LIST">LISTA</button>
+      <button type="button" class="k sm" id="kTopics" title="Valitse aiheet (A)" data-sv-title="Välj ämnen (A)" data-en-title="Choose topics (A)" aria-haspopup="dialog" data-sv="ÄMNEN" data-en="TOPICS">AIHEET</button>
+      <button type="button" class="k sm" id="kBack" title="Takaisin edelliselle sivulle (Backspace)" data-sv-title="Tillbaka till föregående sida (Backspace)" data-en-title="Back to the previous page (Backspace)" data-sv="TILLBAKA" data-en="BACK">TAKAISIN</button>
+      <button type="button" class="k sm" id="kFollow" title="Seurannassa, sivu 108" data-sv-title="Bevakning, sidan 108" data-en-title="Following, page 108" data-sv="BEVAKA" data-en="FOLLOW">SEURAA</button>
+      <button type="button" class="k sm" id="kSize" title="Suurenna ylä- tai alaosa (S)" data-sv-title="Förstora övre eller nedre del (S)" data-en-title="Enlarge top or bottom half (S)">SIZE</button>
+      <button type="button" class="k sm" id="kReveal" title="Paljasta piilotettu teksti (?)" data-sv-title="Visa dold text (?)" data-en-title="Reveal hidden text (?)" aria-pressed="false">REVEAL</button>
+      <button type="button" class="k sm" id="k888" title="Viimeksi avattu juttu selkeällä kielellä" data-sv-title="Senast öppnade nyhet på klarspråk" data-en-title="Last opened item in plain language">888</button>
+      <button type="button" class="k sm" id="kHelp" title="Ohje, sivu 199 (O)" data-sv-title="Hjälp, sidan 199 (O)" data-en-title="Help, page 199 (O)" data-sv="HJÄLP" data-en="HELP">OHJE</button>
+    </div>
+    <div class="rm-colors">
+      <div class="ck"><button type="button" class="k r" data-ft="0" aria-label="Punainen näppäin" data-sv-aria="Röd knapp" data-en-aria="Red key"></button><span id="ft0"></span></div>
+      <div class="ck"><button type="button" class="k g" data-ft="1" aria-label="Vihreä näppäin" data-sv-aria="Grön knapp" data-en-aria="Green key"></button><span id="ft1"></span></div>
+      <div class="ck"><button type="button" class="k y" data-ft="2" aria-label="Keltainen näppäin" data-sv-aria="Gul knapp" data-en-aria="Yellow key"></button><span id="ft2"></span></div>
+      <div class="ck"><button type="button" class="k b" data-ft="3" aria-label="Sininen näppäin" data-sv-aria="Blå knapp" data-en-aria="Blue key"></button><span id="ft3"></span></div>
+    </div>
+    <div class="rm-pad">
+      <button type="button" class="k" data-d="1">1</button>
+      <button type="button" class="k" data-d="2">2</button>
+      <button type="button" class="k" data-d="3">3</button>
+      <button type="button" class="k" data-d="4">4</button>
+      <button type="button" class="k" data-d="5">5</button>
+      <button type="button" class="k" data-d="6">6</button>
+      <button type="button" class="k" data-d="7">7</button>
+      <button type="button" class="k" data-d="8">8</button>
+      <button type="button" class="k" data-d="9">9</button>
+      <button type="button" class="k p" id="kPm" aria-label="Edellinen sivu" data-sv-aria="Föregående sida" data-en-aria="Previous page">P−</button>
+      <button type="button" class="k" data-d="0">0</button>
+      <button type="button" class="k p" id="kPp" aria-label="Seuraava sivu" data-sv-aria="Nästa sida" data-en-aria="Next page">P+</button>
+    </div>
+    <div class="rm-sub">
+      <button type="button" class="k" id="kSubPrev" aria-label="Edellinen alasivu" data-sv-aria="Föregående undersida" data-en-aria="Previous subpage" data-sv="◀ UNDER" data-en="◀ SUB">◀ ALA</button>
+      <button type="button" class="k" id="kSubNext" aria-label="Seuraava alasivu" data-sv-aria="Nästa undersida" data-en-aria="Next subpage" data-sv="UNDER ▶" data-en="SUB ▶">ALA ▶</button>
+    </div>
+    <div class="rm-brand"><b>LAKI-TV</b><small data-sv="Juridisk text-tv · öppen källkod" data-en="Legal teletext · open source">Juridinen teksti-TV · avoin lähdekoodi</small></div>
+  </div>
+</main>
+
+<dialog class="panel" id="panel" aria-label="Kanavaluettelo, aiheet, haku ja jakelu" data-sv-aria="Kanallista, ämnen, sök och distribution" data-en-aria="Channel list, topics, search and distribution">
+  <div class="pn-head">
+    <div class="pn-tabs" role="tablist" aria-label="Näkymä" data-sv-aria="Vy" data-en-aria="View">
+      <button type="button" role="tab" id="tabList" aria-controls="paneList" aria-selected="true" data-sv="Kanaler" data-en="Channels">Kanavat</button>
+      <button type="button" role="tab" id="tabTopics" aria-controls="paneTopics" aria-selected="false" data-sv="Ämnen" data-en="Topics">Aiheet</button>
+      <button type="button" role="tab" id="tabSearch" aria-controls="paneSearch" aria-selected="false" data-sv="Sök" data-en="Search">Haku</button>
+      <button type="button" role="tab" id="tabKal" aria-controls="paneKal" aria-selected="false" data-sv="Distribution" data-en="Feeds">Jakelu</button>
+    </div>
+    <button type="button" class="pn-close" id="panelClose" aria-label="Sulje" data-sv-aria="Stäng" data-en-aria="Close" data-sv="Stäng" data-en="Close">Sulje</button>
+  </div>
+  <div class="pn-pane" id="paneList" role="tabpanel" aria-labelledby="tabList"></div>
+  <div class="pn-pane" id="paneTopics" role="tabpanel" aria-labelledby="tabTopics" hidden>
+    <p class="pn-help" data-sv="Välj de ämnen du vill följa. Kanalerna, förstasidan och sidan 110 visar då bara nyheter om dem. Alla sidor finns ändå kvar under sina nummer. Valet sparas bara i den här webbläsaren." data-en="Choose the topics you want to follow. The channels, the home page and page 110 then show only items about them. All pages remain available by number. The choice is stored only in this browser.">Valitse aiheet, joita haluat seurata. Kanavat, etusivu ja sivu 110 näyttävät silloin vain niihin liittyvät jutut. Kaikki sivut löytyvät silti numerollaan. Valinta tallentuu vain tähän selaimeen.</p>
+    <div class="chips" id="chips"></div>
+    <div class="pn-actions">
+      <span id="fCount">Ei suodatusta</span>
+      <button type="button" class="pn-btn" id="fClear" data-sv="Töm" data-en="Clear">Tyhjennä</button>
+      <button type="button" class="pn-btn pri" id="fShow" data-sv="Visa egna ämnen · 110" data-en="Show my topics · 110">Näytä omat aiheet · 110</button>
+    </div>
+  </div>
+  <div class="pn-pane" id="paneSearch" role="tabpanel" aria-labelledby="tabSearch" hidden>
+    <label class="pn-help" for="q" data-sv="Sök i rubrik, beteckning, sökord och text, till exempel HD:2026:72, dataskydd eller RP 190/2026. Enter öppnar den första träffen." data-en="Search by title, ID, keywords and text, for example KKO:2026:72, data protection or HE 190/2026. Enter opens the first hit.">Hae otsikosta, tunnuksesta, asiasanoista ja tekstistä, esimerkiksi KKO:2026:72, tietosuoja tai HE 190/2026. Enter avaa ensimmäisen osuman.</label>
+    <input type="search" id="q" class="pn-search" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="Hakusana" data-sv-ph="Sökord" data-en-ph="Search term">
+    <p class="pn-count" id="qCount" aria-live="polite"></p>
+    <div class="pn-grid pn-results" id="qResults"></div>
+  </div>
+  <div class="pn-pane" id="paneKal" role="tabpanel" aria-labelledby="tabKal" hidden></div>
+</dialog>
+
+<!--
+  LAKI-TV DATA
+  Päivittäinen päivitys korvaa vain alla olevan JSON-lohkon sisällön.
+  kanavat.{kko,eu,eit,icj,kho,laillisuus,hao,muut,kilpailu,fiva,tsv,he,lausunnot}: enintään 9 kohdetta, uusin ensin.
+  Kohde: id, tunnus, otsikko (≤35 merkkiä), pvm (YYYY-MM-DD|null), pvm_selite,
+         julkaistu (YYYY-MM-DDTHH:MM Helsingin aikaa, milloin lähde julkaisi), paino (1–5, juridinen merkittävyys), asiasanat,
+         teksti (alle 100 sanaa sellaisenaan, muuten tiivistelmä ≤100 sanaa), tekstityyppi, lahde (URL, ensisijainen lähde),
+         selko (yleiskielinen ≤60 sanaa, sivu 888), uusi (bool),
+         aiheet (lista: sote digi eu tyo vero tietosuoja kilpailu rikos maahanmuutto ymparisto asuminen hallinto
+                 finanssi kuluttaja yhtio perhe ihmisoikeudet turvallisuus koulutus);
+         valinnaiset: elin, aihe, vaihe (≤30, EIT/ICJ: "Vireillä…"/"Ratkaistu"), lopputulos, huom,
+         voimaantulo_pvm (HE), maaraaika (lausunnot), lainvoimainen (bool).
+  Etusivu ja sivu 101 lasketaan katsomishetken mukaan (julkaistu + paino); etusivu: 0–3 toimituksen nostoa {ref, otsikko? ≤35}.
+  tiedote: ≤38 merkkiä.
+  voimaantulot: [{pvm, nimi ≤33, saados, he, lahde, aiheet, lakeja?, muutos? ≤76}] vain vahvistetut lait.
+  vt_paivat: {"YYYY-MM-DD": {lakeja, asetuksia}} seuraavan 14 päivän voimaantulopäiville.
+  eu_voimaantulot: [{pvm, nimi ≤30, saados ≤38, laji sovelletaan|osittain|voimaan|täytäntöönpano, kuvaus ≤76, lahde, aiheet}].
+  he_tila: [{he, nimi ≤18, vaihe 1–6, vaihe_nimi, valiokunta, pvm}] eduskunnan avoimesta datasta.
+  visa: 3–5 {kysymys, vaihtoehdot[3], oikea A|B|C, selitys, ref}. tilastot: {he_viimeisin, syysistunto_he, he_maarapaiva}.
+  Ruotsi: kohteissa otsikko_sv, teksti_sv, selko_sv (+ asiasanat_sv, lopputulos_sv, huom_sv, vaihe_sv, elin_sv); voimaantulot nimi_sv, muutos_sv;
+         eu_voimaantulot nimi_sv, kuvaus_sv; he_tila nimi_sv; visa kysymys_sv, vaihtoehdot_sv, selitys_sv; tiedote_sv. Puuttuva näytetään suomeksi.
+  Englanti: samat kentät päätteellä _en (otsikko_en, teksti_en, selko_en, …). Puuttuva näytetään suomeksi.
+  lisatty: milloin juttu tuli LAKI-TV:hen (viikon tärkeimmät 102 ja kalenteri 104 käyttävät sitä).
+  Seuranta: lukijan seuraamat jutut ovat vain lukijan selaimessa ([{id, tunnus, otsikko, k, tila, pvm}]), eivät tässä.
+  Jakelu: päivitys julkaisee sivun rinnalle feed.xml, feed-sv.xml, feed-en.xml, feed.json, lakitv.md, kalenteri.txt (iCalendar) ja maanantaisin viikkokatsaus.pdf/.html.
+  arkisto: kanavilta poistuneet jutut 35 pv {k=kanava, id, tunnus, otsikko(_sv), pvm, julkaistu, lisatty, paino, aiheet, teksti(_sv), lahde, …}.
+  vt_arkisto: voimaan tulleet lait 35 pv (kalenteri). Sivun tietokannassa on vain ylläpitäjän jakeluasetus (asetukset/jakelu: Slack- ja Teams-webhookit sekä GitHub-varaston nimi sivuston peilausta varten).
+  Sivu ei kerää lukijoista mitään: ei evästeitä, ei tunnisteita, ei yhteyksiä kolmansiin palveluihin.
+-->
+<script type="application/json" id="laki-tv-data">__DATA__</script>

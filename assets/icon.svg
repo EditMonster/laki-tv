@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="88" fill="#000"/>
+<rect x="56" y="110" width="400" height="30" fill="#0f0"/>
+<rect x="56" y="150" width="400" height="212" fill="#ff0"/>
+<text x="256" y="300" font-family="'Courier New',Courier,monospace" font-weight="bold" font-size="124" text-anchor="middle" fill="#000">LAKI</text>
+<rect x="56" y="372" width="400" height="30" fill="#0ff"/>
+</svg>

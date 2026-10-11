@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/tunnus.svg" alt="LAKI-TV – juridinen teksti-TV" width="340"></p>
+
 # LAKI-TV
 
 **Juridinen teksti-TV.** Suomen oikeuselämän tärkeimmät uudet asiat – korkeimpien oikeuksien ennakkopäätökset, EU-tuomioistuimen ja EIT:n ratkaisut, laillisuusvalvojien päätökset, hallituksen esitykset, lausuntokierrokset ja voimaan tulevat lait – 1980-luvun teksti-TV:n muodossa, kolmella kielellä (suomi, ruotsi, englanti), päivittyen kahdesti päivässä.

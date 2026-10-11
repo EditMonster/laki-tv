@@ -53,14 +53,29 @@ def main():
                 pg.set_content('<!doctype html><html><body style="margin:0;background:transparent">' + icon_svg(0).replace('viewBox="0 0 64 64"', f'viewBox="0 0 64 64" width="{size}" height="{size}"') + "</body></html>")
                 pg.locator("svg").screenshot(path=os.path.join(a.out, f"icon-{size}.png"), omit_background=True)
                 pg.close()
-        pg = b.new_page(viewport={"width": 1200, "height": 630})
+        # Jakokuva: pelkkä sivun 100 ruutu keskellä (ei kaukosäädintä eikä tunnusta)
+        pg = b.new_page(viewport={"width": 1280, "height": 820})
         t = stamp_of(a.page)
         pg.clock.set_fixed_time(t.replace(second=0))
         pg.goto("file://" + os.path.abspath(a.page) + "#p100")
         pg.wait_for_timeout(900)
         pg.evaluate("document.querySelectorAll('*').forEach(e => { const s = getComputedStyle(e); if (s.animationName !== 'none') e.style.animation = 'none'; })")
-        pg.screenshot(path=os.path.join(a.out, "og.png"), clip={"x": 0, "y": 0, "width": 1200, "height": 630})
+        tv_png = os.path.join(a.out, "_tv.png")
+        pg.locator("#tv").screenshot(path=tv_png)
+        pg.close()
+        comp = ("<!doctype html><html><body style='margin:0;width:1200px;height:630px;background:#0b0b0d;position:relative;overflow:hidden'>"
+                "<img src='file://" + os.path.abspath(tv_png) + "' style='position:absolute;left:50%;top:50%;height:600px;transform:translate(-50%,-50%)'></body></html>")
+        comp_path = os.path.join(a.out, "_og.html")
+        open(comp_path, "w", encoding="utf-8").write(comp)
+        pg = b.new_page(viewport={"width": 1200, "height": 630})
+        pg.goto("file://" + os.path.abspath(comp_path)); pg.wait_for_timeout(300)
+        pg.screenshot(path=os.path.join(a.out, "og.png"))
         b.close()
+        for tmp in (tv_png, comp_path):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
     for n in (["og.png"] if a.og_only else ["icon.svg", "icon-192.png", "icon-512.png", "og.png"]):
         print(f"{n}: {os.path.getsize(os.path.join(a.out, n)) // 1024} kt")
 

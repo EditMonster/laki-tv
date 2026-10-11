@@ -1632,6 +1632,9 @@ function buildHelp() {
     K("C", S("isot kirjaimet päälle / pois", "versaler av / på")),
     K("I / O", S("etusivu 100 / ohje 199", "start 100 / hjälp 199")),
     K("K", S("näppäimistö auki / kiinni", "tangentbord på / av", "keypad on / off")),
+    ...textRows(S("Puhelimessa ruudun napautus avaa sivunumeron syötön; linkit eivät siirry napauttamalla.",
+      "I telefonen öppnar ett tryck på rutan sidnummerfältet; länkar följs inte med tryck.",
+      "On a phone, tapping the screen opens the page-number entry; links are not followed by tapping."), "w"),
     {pageBreak:true},
     head(S("UUTTA", "NYTT"), "y"),
     ...P("Sivu 102 kokoaa viikon (ma–su) tärkeimmät jutut. Lista muuttuu vain, kun viikolle tulee tärkeämpi juttu.",
@@ -2802,6 +2805,26 @@ function setLang(l) {
 }
 
 /* ---------------- Tapahtumat ---------------- */
+/* Mobiili (alle 600 px): ruudun napautus avaa sivunumeron syötön eikä seuraa sivulinkkejä; toimintorivit (seuraa, kalenteri,
+   vastaukset) ja lähdelinkit toimivat. Tietokoneella ruudun linkit toimivat suoraan. */
+const numpad = document.getElementById("numpad"), npIn = document.getElementById("npIn");
+const isNarrow = () => document.documentElement.clientWidth < 600;
+function openNumpad() { numpad.hidden = false; npIn.value = ""; npIn.placeholder = String(state.current); npIn.focus({preventScroll:true}); }
+function closeNumpad() { if (numpad.hidden) return; numpad.hidden = true; if (document.activeElement === npIn) npIn.blur(); }
+screenEl.addEventListener("click", e => {
+  if (!isNarrow()) return;
+  const a = e.target.closest("a");
+  if (a && (a.dataset.act || (!a.dataset.p && a.getAttribute("href")))) return;
+  e.preventDefault(); e.stopPropagation(); openNumpad();
+}, true);
+npIn.addEventListener("input", () => {
+  npIn.value = npIn.value.replace(/\D/g, "").slice(0, 3);
+  if (npIn.value.length === 3) { const n = +npIn.value; closeNumpad(); if (n >= 100 && n <= 899) { blink(); go(n); } }
+});
+npIn.addEventListener("keydown", e => { if (e.key === "Escape" || e.key === "Enter") { e.preventDefault(); closeNumpad(); } });
+npIn.addEventListener("blur", () => setTimeout(closeNumpad, 60));
+numpad.addEventListener("click", e => { if (e.target === numpad) closeNumpad(); });
+window.addEventListener("resize", () => { if (!isNarrow()) closeNumpad(); });
 rowsEl.addEventListener("click", e => {
   const a = e.target.closest("a[data-p],a[data-act]");
   if (!a) return;

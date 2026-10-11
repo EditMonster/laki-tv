@@ -91,6 +91,11 @@
   </div>
 </aside>
 
+<!-- Mobiili: ruudun napautus avaa sivunumeron syötön (teksti-TV-sovellusten tapaan); tietokoneella ruudun linkit toimivat suoraan -->
+<div class="numpad" id="numpad" hidden>
+  <input id="npIn" class="np-in" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="100" aria-label="Sivunumero" data-sv-aria="Sidnummer" data-en-aria="Page number">
+</div>
+
 <dialog class="panel" id="panel" aria-label="Kanavaluettelo, aiheet, haku ja jakelu" data-sv-aria="Kanallista, ämnen, sök och distribution" data-en-aria="Channel list, topics, search and distribution">
   <div class="pn-head">
     <div class="pn-tabs" role="tablist" aria-label="Näkymä" data-sv-aria="Vy" data-en-aria="View">

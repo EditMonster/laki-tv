@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Luo sivuston kuvakkeet ja jakokuvan: icon.svg, icon-192.png, icon-512.png, og.png.
 
-Kuvake on teksti-TV:n keltainen LAKI-laatikko mustalla. Jakokuva (1200×630) on sivun 100 oikea näkymä annetusta
+Kuvake on keltainen mosaiikki-L teksti-TV:n sinisellä. Jakokuva (1200×630) on sivun 100 oikea näkymä annetusta
 HTML-tiedostosta, kello pysäytettynä datan päivityshetkeen, jotta kuva vastaa sisältöä. Tarvitsee Playwrightin ja Chromiumin.
 
   python3 tools/assets.py                              # assets/ projektin preview.html:stä
@@ -12,14 +12,17 @@ from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-ICON = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-<rect width="512" height="512" rx="88" fill="#000"/>
-<rect x="56" y="110" width="400" height="30" fill="#0f0"/>
-<rect x="56" y="150" width="400" height="212" fill="#ff0"/>
-<text x="256" y="300" font-family="'Courier New',Courier,monospace" font-weight="bold" font-size="124" text-anchor="middle" fill="#000">LAKI</text>
-<rect x="56" y="372" width="400" height="30" fill="#0ff"/>
+ICON = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<rect width="64" height="64" rx="RX" fill="#0a0acc"/>
+<g fill="#ffe600">
+<rect x="13" y="9" width="15" height="15"/><rect x="13" y="25" width="15" height="15"/><rect x="13" y="41" width="15" height="15"/>
+<rect x="29" y="41" width="11" height="15"/><rect x="41" y="41" width="11" height="15"/>
+</g>
 </svg>
 """
+# Kuvake: teksti-TV:n sininen otsikkopalkki ja keltainen mosaiikki-L (sivun 100 otsikon värit). Selainvälilehdessä pyöristetty,
+# sovelluskuvakkeena (192/512) täysi neliö, koska iOS ja Android pyöristävät itse.
+icon_svg = lambda rx: ICON.replace("RX", str(rx))
 
 
 def stamp_of(page_path):
@@ -44,10 +47,10 @@ def main():
     with sync_playwright() as p:
         b = p.chromium.launch()
         if not a.og_only:
-            open(os.path.join(a.out, "icon.svg"), "w", encoding="utf-8").write(ICON)
+            open(os.path.join(a.out, "icon.svg"), "w", encoding="utf-8").write(icon_svg(12))
             for size in (192, 512):
                 pg = b.new_page(viewport={"width": size, "height": size})
-                pg.set_content('<!doctype html><html><body style="margin:0;background:transparent">' + ICON.replace('viewBox="0 0 512 512"', f'viewBox="0 0 512 512" width="{size}" height="{size}"') + "</body></html>")
+                pg.set_content('<!doctype html><html><body style="margin:0;background:transparent">' + icon_svg(0).replace('viewBox="0 0 64 64"', f'viewBox="0 0 64 64" width="{size}" height="{size}"') + "</body></html>")
                 pg.locator("svg").screenshot(path=os.path.join(a.out, f"icon-{size}.png"), omit_background=True)
                 pg.close()
         pg = b.new_page(viewport={"width": 1200, "height": 630})

@@ -39,12 +39,12 @@ lähteet (KKO, KHO, Finlex, eduskunta, curia, HUDOC, …)
         └──feed──▶  feed.xml · feed-sv.xml · feed-en.xml · feed.json · lakitv.md · kalenteri.txt
         └──viikkokatsaus──▶  viikkokatsaus.html / .pdf  (maanantaisin)
         └──digest --muoto slack|teams ──▶ post  (ylläpitäjän webhook)
-        └──ghpush──▶  GitHub source/  ──Actions: tools/website.py──▶  verkkosivusto (GitHub Pages, oma domain)
+        └──ghpush (vain data.json)──▶  GitHub ──Actions: validate + build + feed + website──▶  verkkosivusto (GitHub Pages)
 ```
 
 * **Sivu** on yksi HTML-tiedosto ilman riippuvuuksia. Teksti-TV-moottori piirtää 40×25 merkin sivut datasta selaimessa; kaikki sivut (myös kalenteri, viikon tärkeimmät ja aiheet) lasketaan datasta ajon aikana.
 * **Työkalu** `tools/lakitv.py` (Python 3.10+, vain `lxml` lisäksi) tekee kaiken datan käsittelyn: lähteiden skannauksen, lisäyksen, tarkistuksen (`validate`), arkistoinnin, eduskunnan ja Finlexin avoimen datan päivitykset, syötteet ja koosteet.
-* **Verkkosivusto** on sama sivu julkisessa osoitteessa: `tools/website.py` lisää hakukone- ja jakotiedot (Open Graph -kuva on sivu 100), PWA-manifestin ja service workerin (toimii ilman yhteyttä), oikean `.ics`-kalenterin, RSS-vaihtoehdot, `robots.txt`:n ja sivukartan. `.github/workflows/pages.yml` julkaisee sen GitHub Pagesiin aina, kun `source/` muuttuu; `tools/ghpush.py` työntää päivitetyn sisällön sinne yhdellä commitilla. Pystytys: `docs/JULKAISU.md`.
+* **Verkkosivusto** on sama sivu julkisessa osoitteessa: `tools/website.py` lisää hakukone- ja jakotiedot (Open Graph -kuva on sivu 100), PWA-manifestin ja service workerin (toimii ilman yhteyttä), oikean `.ics`-kalenterin, RSS-vaihtoehdot, `robots.txt`:n ja sivukartan. `.github/workflows/pages.yml` rakentaa sen varaston koodista ja julkaisee GitHub Pagesiin aina, kun `data.json` tai koodi muuttuu; päivitysajo työntää vain `data.json`-tiedoston (`tools/ghpush.py`), ja `validate` tarkistaa datan ennen julkaisua. Pystytys: `docs/JULKAISU.md`.
 * **Päivitys** on agentin ajo, jonka ohje on `trigger_prompt.txt`: agentti ajaa työkalun komennot, valitsee juridisesti merkittävät uutuudet, kirjoittaa tiivistelmät ja käännökset, ja julkaisee. Työkalu tarkistaa koneellisesti, ettei agentti keksi mitään: lähteen on vastattava, virallisen tiivistelmän on löydyttävä lähteestä sanatarkasti, ja selkoversion luvut on löydyttävä tekstistä.
 
 ## Käyttö
@@ -70,7 +70,7 @@ python3 tools/lakitv.py post slack.json https://hooks.slack.com/…
 # verkkosivusto (GitHub Pages tekee tämän itse; paikallisesti:)
 python3 tools/assets.py                                     # kuvakkeet ja jakokuva (kerran)
 python3 tools/website.py --page laki-tv.html --feeds jakelu --out site --base https://tunnus.github.io/laki-tv/
-python3 tools/ghpush.py tunnus/laki-tv data.json=data.json laki-tv.html=source/laki-tv.html jakelu=source
+python3 tools/ghpush.py tunnus/laki-tv data.json=data.json
 
 # testit (Playwright + Chromium)
 ./test/run_all.sh
@@ -102,6 +102,6 @@ Tämä on riippumaton harrastus- ja oppimisprojekti. Se ei ole oikeudellista neu
 
 **LAKI-TV** is a legal-news teletext for Finland: Supreme Court and Supreme Administrative Court precedents, CJEU and ECtHR rulings, decisions of the Chancellor of Justice and the Parliamentary Ombudsman, government bills with their parliamentary stage, consultation deadlines and acts entering into force – rendered as 1980s-style teletext pages in Finnish, Swedish and English, updated twice a day.
 
-The page is a single dependency-free HTML file; a 40×25 teletext engine renders every page from the embedded JSON. `tools/website.py` wraps it into a public website (metadata, Open Graph image, PWA with offline cache, real `.ics` calendar) that GitHub Actions publishes to GitHub Pages whenever the update run pushes new content with `tools/ghpush.py`. A Python tool (`tools/lakitv.py`) handles scanning official sources, adding and validating items, parliamentary and Finlex open-data updates, feeds (RSS/JSON/Markdown/iCalendar), a weekly PDF review and Slack/Teams digests. The update itself is an agent run following `trigger_prompt.txt`; the tool enforces that nothing is invented (the source must respond, official summaries must match verbatim, numbers in plain-language versions must appear in the text, dates must exist). Readers can follow items and add deadlines to their own calendar manually; the page stores nothing about its readers and makes no third-party requests.
+The page is a single dependency-free HTML file; a 40×25 teletext engine renders every page from the embedded JSON. `tools/website.py` wraps it into a public website (metadata, Open Graph image, PWA with offline cache, real `.ics` calendar) that GitHub Actions builds from the repository's own code and publishes to GitHub Pages whenever the update run pushes a new `data.json` with `tools/ghpush.py` (data is validated before deploy). A Python tool (`tools/lakitv.py`) handles scanning official sources, adding and validating items, parliamentary and Finlex open-data updates, feeds (RSS/JSON/Markdown/iCalendar), a weekly PDF review and Slack/Teams digests. The update itself is an agent run following `trigger_prompt.txt`; the tool enforces that nothing is invented (the source must respond, official summaries must match verbatim, numbers in plain-language versions must appear in the text, dates must exist). Readers can follow items and add deadlines to their own calendar manually; the page stores nothing about its readers and makes no third-party requests.
 
 Code: MIT. Fonts: Bedstead (CC0) and the derived LakiCaps (CC0). Not legal advice; an independent student project.

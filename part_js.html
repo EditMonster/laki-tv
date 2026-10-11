@@ -36,7 +36,7 @@ const LANGS = ["fi", "sv", "en"];
 let LANG = LANGS.includes(store.get("lang", "fi")) ? store.get("lang", "fi") : "fi";
 const SAFE_URL = u => typeof u === "string" && (/^https?:\/\/[^\s"'<>]+$/i.test(u) || /^mailto:[^\s"'<>]+$/i.test(u) || (location.protocol === "file:" && /^file:\/\/[^\s"'<>]+$/i.test(u)));   // vain http(s)- ja mailto-linkit päätyvät ruudulle (paikallisessa kopiossa myös file:)
 /* Palautekanava: GitHub-issuet (https://github.com/<tunnus>/<repo>/issues) tai mailto:osoite. Tyhjänä ILMOITA VIRHEESTÄ -riviä ei näytetä. */
-const FEEDBACK_URL = "";
+const FEEDBACK_URL = "https://github.com/EditMonster/laki-tv/issues";
 /* Englanninkieliset käyttöliittymätekstit avaimena suomenkielinen teksti; S(fi, sv, en?) hakee ne täältä, jos en-argumenttia ei anneta. */
 const EN_S = {
   "Tallennetaan…":"Saving…", "Sivu":"Page", "Kanavat":"Channels", "Kieli":"Language",

@@ -1,48 +1,107 @@
-# Julkaisu ja ylläpito
+# LAKI-TV
 
-LAKI-TV:llä on kaksi julkaisupaikkaa. **Artifakti** (claude.ai) on moottori: ajastettu päivitysajo kirjoittaa sinne datan ja jakelutiedostot. **Verkkosivusto** (GitHub Pages, oma domain) on julkinen osoite lukijoille, hakukoneille, RSS-lukijoille ja kalentereille: sama sivu hakukone- ja jakotiedoilla, PWA:na ja oikealla `.ics`-kalenterilla. Sivusto rakennetaan artifaktista työnnetystä sisällöstä, joten kumpaakaan ei ylläpidetä käsin.
+**Juridinen teksti-TV.** Suomen oikeuselämän tärkeimmät uudet asiat – korkeimpien oikeuksien ennakkopäätökset, EU-tuomioistuimen ja EIT:n ratkaisut, laillisuusvalvojien päätökset, hallituksen esitykset, lausuntokierrokset ja voimaan tulevat lait – 1980-luvun teksti-TV:n muodossa, kolmella kielellä (suomi, ruotsi, englanti), päivittyen kahdesti päivässä.
 
-## 1. Artifakti (moottori)
-1. `python3 build.py` tuottaa `laki-tv.html`.
-2. Julkaise se artifaktina. Kyvyt (capabilities): `db` säännöllä `asetukset` (read owner, write owner), `user`, `downloads`. Mitään muuta tietokantapolkua ei tarvita: sivu ei tallenna lukijoista mitään.
-3. Julkaise rinnalle `tools/lakitv.py` nimellä `tools/lakitv.py.txt` (contentType text/plain) sekä `feed`-komennon tiedostot.
-4. Ajastetut ajot: `docs/trigger_prompt.txt` (pääajo klo 6.45 ja 14.45 Europe/Helsinki) ja `docs/trigger_prompt_varmistus.txt` (klo 8.15, tekee aamuajon vain jos se jäi väliin). Ajo ei koskaan muuta sivun koodia, vain JSON-lohkon ja jakelutiedostot.
+*English summary at the end.*
 
-## 2. Verkkosivusto (GitHub Pages)
+---
 
-### Kertaluonteinen pystytys
-1. Luo GitHubiin **julkinen** varasto (esim. `laki-tv`) ja työnnä tämän paketin sisältö sinne (`git init && git add -A && git commit -m "LAKI-TV" && git push`). Mukana oleva `source/`-kansio on sivun ja syötteiden tuorein tilannekuva, joten sivusto syntyy heti ensimmäisestä työnnöstä.
-2. Varaston asetukset → **Pages** → Build and deployment → Source: **GitHub Actions**. Työnkulku `.github/workflows/pages.yml` rakentaa sivuston (`tools/website.py`) ja julkaisee sen aina, kun `source/` tai `data.json` muuttuu.
-3. Sivusto on osoitteessa `https://<tunnus>.github.io/laki-tv/` muutaman minuutin kuluttua. Actions-välilehti näyttää ajon.
+## Mitä sivulla on
 
-### Sisällön peilaus artifaktista
-Päivitysajo työntää julkaisun jälkeen `data.json`-tiedoston sekä sivun ja syötteet `source/`-kansioon työkalulla `tools/ghpush.py` (yksi commit GitHubin Git Data -rajapinnalla, ei git-ohjelmaa, ei tokeneita paketissa). Pystytys:
-1. Yhdistä GitHub claude.ai:n Connectors-asetuksissa (sama tili, jolla ajot ajetaan) ja anna sille oikeus varastoon.
-2. Avaa sivun JAKELU-paneeli omistajana ja kirjoita kenttään *GitHub-varasto* nimi muodossa `omistaja/laki-tv`. Se tallentuu dokumenttiin `asetukset/jakelu` (vain omistajan luettavissa) webhookien rinnalle.
-3. Päivitysajon ohjeeseen lisätään peilausaskel (ajo lukee `github_repo`-kentän, hakee `tools/ghpush.py.txt`:n artifaktista ja työntää `data.json`-tiedoston, sivun ja syötteet). Tämä askel päätetään ja lisätään erikseen – ajo ohittaa peilauksen, kunnes se on ohjeessa. Askel edellyttää, että `tools/ghpush.py` on julkaistu artifaktin rinnalle nimellä `tools/ghpush.py.txt` (contentType text/plain) kuten `tools/lakitv.py.txt`.
-4. Ensimmäisen ajon raportti kertoo, onnistuiko työntö (commitin tunnus) vai ei (syy). Jos istunnolla ei ole GitHub-yhteyttä, ajo kirjaa sen eikä yritä muuta.
+| Sivut | Sisältö |
+|---|---|
+| 100 | Etusivu: päivän kärki, pääuutiset, kanavat |
+| 101–105 | Tänään, viikon tärkeimmät, kalenteri 30 pv, päivän tilanne, arkisto |
+| 107 | Aamukooste (sama kooste, jonka Slack/Teams-kanava saa) |
+| 108 | Seurannassa: lukijan seuraamat asiat ja niiden tila |
+| 109 | Jakelu: RSS, JSON, Markdown, kalenteri, viikkokatsaus |
+| 150 | Päivän visa |
+| 190, 199 | Hakemisto, ohje |
+| 198 | Tila: lähteet, ajot, arkisto (lähdevahti) |
+| 200–599 | Tuomioistuimet ja valvojat: KKO, EUT, EIT, ICJ, KHO, OKV/EOA, HAO, muut, KKV, Fiva, TSV |
+| 700–749 | Eduskunta: HE-tulostaulu, hallituksen esitykset, lausuntokierrokset |
+| 800–801 | Voimaan tulevat lait ja EU-säädökset |
+| 851–869 | Aiheet (sote, tietosuoja, työ, vero, …) |
+| 888 | Viimeksi avattu juttu selkeällä kielellä |
 
-Käsin peilaus (ilman ajoa, esim. omalta koneelta): `GITHUB_TOKEN=<fine-grained PAT, Contents: read/write> python3 tools/ghpush.py omistaja/laki-tv -m "LAKI-TV 4.10." data.json=data.json laki-tv.html=source/laki-tv.html out=source` – tai ilman tokenia, kun `gh`-komento on kirjautuneena.
+Jokaisella jutulla on virallinen tiivistelmä tai neutraali referaatti, selkokielinen versio, aiheet ja linkki viralliseen lähteeseen. Lukija voi **seurata asiaa** (HE:n käsittelyvaihe, EIT-jutun vaihe, lausuntoajan määräaika) ja **lisätä määräajan kalenteriinsa** itse – Google, Outlook, .ics tai tilattava kalenteriosoite. Mitään ei lisätä automaattisesti.
 
-### Vahti
-`.github/workflows/vahti.yml` tarkistaa joka aamu, että `data.json` on alle 20 tuntia vanha; muuten työnkulku epäonnistuu ja GitHub lähettää varaston omistajalle sähköpostin. Näin huomaat sekä väliin jääneen ajon että katkenneen peilauksen ilman, että sivua tarvitsee käydä katsomassa.
+Sivu ei kerää lukijoista mitään: ei evästeitä, ei tunnisteita, ei analytiikkaa, ei yhteyksiä kolmansiin palveluihin. Omat aiheet ja seurannat tallentuvat vain lukijan selaimeen.
 
-### Oma domain
-1. Osta domain (esim. `laki-tv.fi`, Traficomin rekisteröidyn välittäjän kautta).
-2. DNS: `www` → CNAME `<tunnus>.github.io.`; juuri (apex) → A-tietueet `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153` (ja AAAA `2606:50c0:8000::153` … `8003::153`).
-3. Varaston asetukset → Pages → Custom domain: kirjoita domain, odota DNS-tarkistus, valitse **Enforce HTTPS**.
-4. Varaston asetukset → Secrets and variables → Actions → Variables: `LAKITV_DOMAIN = laki-tv.fi` (kirjoittaa `CNAME`-tiedoston joka julkaisuun). Canonical- ja og:url-osoitteet seuraavat automaattisesti Pages-asetuksen osoitetta.
+## Miten se toimii
 
-### Mitä sivusto sisältää
-`tools/website.py` tuottaa kansion `site/`: `index.html` (sivu + `<head>`: kuvaus, canonical, Open Graph/Twitter, RSS-vaihtoehdot, manifest), `feed*.xml`, `feed.json`, `lakitv.md`, `kalenteri*.ics` (tekstitiedostoista uudelleennimettyinä; myös sivun sisäiset viittaukset vaihdetaan), `viikkokatsaus.html/.pdf`, `manifest.webmanifest`, `sw.js` (verkko ensin, välimuisti varalla: viimeisin sisältö näkyy ilman yhteyttä), kuvakkeet, `og.png` (sivu 100, päivitetään joka julkaisussa Playwrightilla; epäonnistuessa jää edellinen), `robots.txt`, `sitemap.xml`, `404.html`, `.nojekyll` ja tarvittaessa `CNAME`. Sivuston osoitteessa `window.claude` puuttuu, joten `.ics`-nappi lataa tiedoston suoraan ja JAKELU-paneelin ylläpitolomake ei näy.
+```
+lähteet (KKO, KHO, Finlex, eduskunta, curia, HUDOC, …)
+        │  tools/lakitv.py scan / text / add / he-update / vt-update
+        ▼
+   data.json  ──inject──▶  laki-tv.html  (yksi tiedosto: HTML + CSS + JS + data + fontit)
+        │
+        └──feed──▶  feed.xml · feed-sv.xml · feed-en.xml · feed.json · lakitv.md · kalenteri.txt
+        └──viikkokatsaus──▶  viikkokatsaus.html / .pdf  (maanantaisin)
+        └──digest --muoto slack|teams ──▶ post  (ylläpitäjän webhook)
+        └──ghpush (vain data.json)──▶  GitHub ──Actions: validate + build + feed + website──▶  verkkosivusto (GitHub Pages)
+```
 
-Kuvakkeet ja oletusjakokuva tehdään kerran komennolla `python3 tools/assets.py` (kansioon `assets/`).
+* **Sivu** on yksi HTML-tiedosto ilman riippuvuuksia. Teksti-TV-moottori piirtää 40×25 merkin sivut datasta selaimessa; kaikki sivut (myös kalenteri, viikon tärkeimmät ja aiheet) lasketaan datasta ajon aikana.
+* **Työkalu** `tools/lakitv.py` (Python 3.10+, vain `lxml` lisäksi) tekee kaiken datan käsittelyn: lähteiden skannauksen, lisäyksen, tarkistuksen (`validate`), arkistoinnin, eduskunnan ja Finlexin avoimen datan päivitykset, syötteet ja koosteet.
+* **Verkkosivusto** on sama sivu julkisessa osoitteessa: `tools/website.py` lisää hakukone- ja jakotiedot (Open Graph -kuva on sivu 100), PWA-manifestin ja service workerin (toimii ilman yhteyttä), oikean `.ics`-kalenterin, RSS-vaihtoehdot, `robots.txt`:n ja sivukartan. `.github/workflows/pages.yml` rakentaa sen varaston koodista ja julkaisee GitHub Pagesiin aina, kun `data.json` tai koodi muuttuu; päivitysajo työntää vain `data.json`-tiedoston (`tools/ghpush.py`), ja `validate` tarkistaa datan ennen julkaisua. Pystytys: `docs/JULKAISU.md`.
+* **Päivitys** on agentin ajo, jonka ohje on `trigger_prompt.txt`: agentti ajaa työkalun komennot, valitsee juridisesti merkittävät uutuudet, kirjoittaa tiivistelmät ja käännökset, ja julkaisee. Työkalu tarkistaa koneellisesti, ettei agentti keksi mitään: lähteen on vastattava, virallisen tiivistelmän on löydyttävä lähteestä sanatarkasti, ja selkoversion luvut on löydyttävä tekstistä.
 
-## Palautekanava
-`part_js.html`: `const FEEDBACK_URL = "";` – anna GitHub-issuiden osoite (`https://github.com/<tunnus>/laki-tv/issues`) tai `mailto:`-osoite, niin juttusivuille tulee ILMOITA VIRHEESTÄ -rivi. Tyhjänä riviä ei näytetä.
+## Käyttö
 
-## Slack/Teams
-Sivun omistaja avaa JAKELU-paneelin kirjautuneena ja antaa webhook-osoitteet. Ne tallentuvat vain omistajan luettavaan dokumenttiin `asetukset/jakelu`; päivitysajo lähettää aamukoosteen ja painon 5 jutut iltapäivällä.
+```sh
+# rakenna sivu osista (part_css.html + part_body.html + part_js.html + data.json + fontit)
+python3 build.py
 
-## Testit
-`./test/run_all.sh` rakentaa sivun, siirtää kiinteän testidatan (`test/fixture_base.json`, 30.9.2026) tähän päivään ja ajaa kaikki sarjat Playwrightilla (Chromium), lopuksi `test/site_test.py`, joka rakentaa sivuston alipolkuun `/laki-tv/` paikalliselle palvelimelle ja tarkistaa metatiedot, syötteet, `.ics`-kalenterin, manifestin, service workerin ja offline-tilan, latauksen ja syvälinkit. Vaatii `pip install playwright lxml fonttools && playwright install chromium`.
+# päivitysajon komennot (ks. trigger_prompt.txt)
+python3 tools/lakitv.py extract laki-tv.html data.json     # data ulos sivusta
+python3 tools/lakitv.py scan data.json                      # uudet julkaisut lähteistä -> ehdokkaat.json
+python3 tools/lakitv.py text URL                            # lähteen teksti tiivistelmää varten
+python3 tools/lakitv.py add data.json kko kohde.json        # lisää juttu (tarkistaa lähteen)
+python3 tools/lakitv.py he-update data.json                 # eduskunnan HE-tulostaulu
+python3 tools/lakitv.py vt-update data.json                 # Finlex: voimaan tulevat lait
+python3 tools/lakitv.py validate data.json                  # kaikki tarkistukset
+python3 tools/lakitv.py inject laki-tv.html data.json uusi.html
+python3 tools/lakitv.py feed data.json --out jakelu         # RSS, JSON, Markdown, kalenteri
+python3 tools/lakitv.py viikkokatsaus data.json --out jakelu/viikkokatsaus
+python3 tools/lakitv.py digest data.json --laji aamu --muoto slack --out slack.json
+python3 tools/lakitv.py post slack.json https://hooks.slack.com/…
+
+# verkkosivusto (GitHub Pages tekee tämän itse; paikallisesti:)
+python3 tools/assets.py                                     # kuvakkeet ja jakokuva (kerran)
+python3 tools/website.py --page laki-tv.html --feeds jakelu --out site --base https://tunnus.github.io/laki-tv/
+python3 tools/ghpush.py tunnus/laki-tv data.json=data.json
+
+# testit (Playwright + Chromium)
+./test/run_all.sh
+```
+
+`python3 tools/lakitv.py` ilman argumentteja tulostaa kaikki komennot.
+
+## Datamalli
+
+Sivun sisällä on `<script type="application/json" id="laki-tv-data">`. Kaava on kuvattu sivun HTML-kommentissa (`part_body.html`). Pääosat: `kanavat` (13 kanavaa, enintään 9 juttua kussakin), `arkisto` (35 pv), `voimaantulot`, `eu_voimaantulot`, `he_tila`, `he_muutokset`, `visa`, `_ajot` ja `_lahteet` (lähdevahti). Ruotsi ja englanti ovat samojen kenttien `_sv`- ja `_en`-päätteisiä versioita; puuttuva käännös näytetään suomeksi ja merkitään.
+
+## Rajoitukset, jotka kannattaa tietää
+
+* Tiivistelmät ja käännökset ovat tekoälyn tuottamia. Työkalu tarkistaa koneellisesti sen, minkä voi (lähde vastaa, virallinen tiivistelmä täsmää, luvut täsmäävät, päivämäärät ovat kalenterissa), mutta ei juridista tulkintaa. Jokaisessa jutussa on linkki viralliseen lähteeseen, ja lukijan on syytä käyttää sitä.
+* Päivitys riippuu ajastetusta agenttiajosta. Jos ajo jää väliin, sivu näyttää yli 20 tuntia vanhan tiedon varoituksena, ja sivu 198 kertoo, mitkä lähteet ovat hiljentyneet.
+* Artifaktin syöte- ja kalenteriosoitteet toimivat vain selaimessa linkillä jaettuna; palvelimelta haettuna (RSS-lukijat, kalenteripalvelut) claude.ai vastaa tarkistussivulla. Verkkosivuston osoitteet toimivat kaikkialla, ja siellä kalenteri on oikea `kalenteri.ics`. Artifaktissa kalenteritiedosto on `kalenteri.txt` (iCalendar-sisältö), koska alusta ei tarjoile `.ics`-päätettä.
+
+## Lisenssit
+
+* Koodi ja sivun rakenne: MIT (`LICENSE`).
+* Fontit: Bedstead (bjh21, CC0 1.0) ja siitä johdettu LakiCaps (CC0 1.0), joissa Ä, Ö ja Å ovat yhtä korkeita kuin muut isot kirjaimet.
+* Sisältö: tuomioistuinten, viranomaisten ja eduskunnan julkaisemat tiedot ovat julkisia; tiivistelmät linkittävät aina alkuperäiseen lähteeseen.
+
+Tämä on riippumaton harrastus- ja oppimisprojekti. Se ei ole oikeudellista neuvontaa eikä liity mihinkään viranomaiseen tai asianajotoimistoon.
+
+---
+
+## English summary
+
+**LAKI-TV** is a legal-news teletext for Finland: Supreme Court and Supreme Administrative Court precedents, CJEU and ECtHR rulings, decisions of the Chancellor of Justice and the Parliamentary Ombudsman, government bills with their parliamentary stage, consultation deadlines and acts entering into force – rendered as 1980s-style teletext pages in Finnish, Swedish and English, updated twice a day.
+
+The page is a single dependency-free HTML file; a 40×25 teletext engine renders every page from the embedded JSON. `tools/website.py` wraps it into a public website (metadata, Open Graph image, PWA with offline cache, real `.ics` calendar) that GitHub Actions builds from the repository's own code and publishes to GitHub Pages whenever the update run pushes a new `data.json` with `tools/ghpush.py` (data is validated before deploy). A Python tool (`tools/lakitv.py`) handles scanning official sources, adding and validating items, parliamentary and Finlex open-data updates, feeds (RSS/JSON/Markdown/iCalendar), a weekly PDF review and Slack/Teams digests. The update itself is an agent run following `trigger_prompt.txt`; the tool enforces that nothing is invented (the source must respond, official summaries must match verbatim, numbers in plain-language versions must appear in the text, dates must exist). Readers can follow items and add deadlines to their own calendar manually; the page stores nothing about its readers and makes no third-party requests.
+
+Code: MIT. Fonts: Bedstead (CC0) and the derived LakiCaps (CC0). Not legal advice; an independent student project.

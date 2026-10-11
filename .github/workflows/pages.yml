@@ -1,10 +1,12 @@
-# LAKI-TV: julkaisee sivuston GitHub Pagesiin aina, kun päivitysajo on työntänyt uuden sisällön (source/, data.json)
-# tai sivuston rakennus muuttuu. Pages-asetuksissa lähteeksi valitaan "GitHub Actions".
+# LAKI-TV: rakentaa ja julkaisee sivuston GitHub Pagesiin.
+# Turvamalli: päivitysajo työntää varastoon vain data.json-tiedoston. Sivun koodi, fontit ja työkalut tulevat varastosta,
+# data tarkistetaan (validate) ennen rakennusta, ja syötteet, kalenteri, viikkokatsaus ja jakokuva tehdään täällä.
+# Pages-asetuksissa lähteeksi valitaan "GitHub Actions".
 name: pages
 on:
   push:
     branches: [main]
-    paths: ["source/**", "data.json", "assets/**", "tools/website.py", "tools/assets.py", ".github/workflows/pages.yml"]
+    paths: ["data.json", "part_*.html", "build.py", "fonts/**", "assets/**", "tools/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,22 +19,32 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: {python-version: "3.12"}
       - id: pages
-        uses: actions/configure-pages@v5
-      - name: Rakenna sivusto
+        uses: actions/configure-pages@v6
+      - name: Asenna riippuvuudet
+        run: pip install -q lxml playwright==1.47.0
+      - name: Tarkista data (virheellinen data ei päädy sivustolle)
+        run: python3 tools/lakitv.py validate data.json
+      - name: Rakenna sivu varaston koodista
+        run: python3 build.py
+      - name: Syötteet, kalenteri ja viikkokatsaus
+        env:
+          LAKITV_BASE: ${{ steps.pages.outputs.base_url }}/
+        run: |
+          python3 tools/lakitv.py feed data.json --out jakelu
+          playwright install --with-deps chromium >/dev/null || true
+          python3 tools/lakitv.py viikkokatsaus data.json --out jakelu/viikkokatsaus || true
+      - name: Kokoa sivusto
         env:
           LAKITV_DOMAIN: ${{ vars.LAKITV_DOMAIN }}
-        run: python3 tools/website.py --from-dir source --out site --base "${{ steps.pages.outputs.base_url }}/"
-      - name: Päivitä jakokuva (sivu 100 tänään)
+        run: python3 tools/website.py --page laki-tv.html --feeds jakelu --out site --base "${{ steps.pages.outputs.base_url }}/"
+      - name: Jakokuva (sivu 100 tänään)
         continue-on-error: true
-        run: |
-          pip install -q playwright==1.47.0
-          playwright install --with-deps chromium >/dev/null
-          python3 tools/assets.py --page site/index.html --out site --og-only
-      - uses: actions/upload-pages-artifact@v3
+        run: python3 tools/assets.py --page site/index.html --out site --og-only
+      - uses: actions/upload-pages-artifact@v5
         with: {path: site}
   deploy:
     needs: build
@@ -42,4 +54,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

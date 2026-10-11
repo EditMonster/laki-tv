@@ -13,13 +13,31 @@ Tavat:
   auto GITHUB_TOKEN -> api; muuten git, jos git-ohjelma löytyy; muuten `gh api` (Claude-istunnon gh ei salli kirjoituksia, joten
        se toimii vain oikean GitHub CLI:n kanssa).
 
-Esimerkki päivitysajosta:
-  python3 tools/ghpush.py kalle/laki-tv -m "LAKI-TV 4.10. klo 06.48" data.json=data.json uusi.html=source/laki-tv.html jakelu=source"""
-import argparse, base64, hashlib, json, os, shutil, subprocess, sys, tempfile, urllib.request, urllib.error
+Turvarajat: oletuksena vain data.json ja source/-kansio kelpaavat kohteiksi (--allow laajentaa), tiedosto enintään 5 Mt,
+ja tunnukselta näyttävä sisältö (webhook-osoite, token, yksityinen avain) pysäyttää työnnön. Mitään ei koskaan poisteta.
+
+Päivitysajo työntää vain datan; sivusto rakennetaan varaston omasta koodista GitHub Actionsissa:
+  python3 tools/ghpush.py omistaja/laki-tv -m "LAKI-TV 4.10. klo 06.48" data.json=data.json"""
+import argparse, base64, hashlib, json, os, re, shutil, subprocess, sys, tempfile, urllib.request, urllib.error
 
 API = "https://api.github.com"
 SKIP = {"slack.json", "teams.json", ".DS_Store"}
 AUTHOR = ["-c", "user.name=LAKI-TV", "-c", "user.email=laki-tv@users.noreply.github.com"]
+# Turvarajat: päivitysajo saa työntää vain datan (sivuston koodi tulee varastosta, ei ajosta); muut kohteet vaativat --allow.
+ALLOW_DEFAULT = ["data.json", "source/"]
+MAX_BYTES = 5 * 1024 * 1024
+SECRETS = re.compile(r"hooks\.slack\.com/services/[A-Za-z0-9]|logic\.azure\.com/[^\s\"']{20,}|webhook\.office\.com/[^\s\"']{20,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----")
+
+
+def guard(files, allow):
+    """Hylkää kohteet sallittujen polkujen ulkopuolella, liian suuret tiedostot ja tiedostot, joissa näyttää olevan tunnuksia."""
+    for p, d in files.items():
+        if not any(p == a or (a.endswith("/") and p.startswith(a)) for a in allow):
+            raise SystemExit(f"kohde {p!r} ei ole sallittujen joukossa ({', '.join(allow)}); käytä --allow, jos tämä on tarkoitus")
+        if len(d) > MAX_BYTES:
+            raise SystemExit(f"{p}: {len(d) // 1024} kt ylittää rajan {MAX_BYTES // 1024 // 1024} Mt")
+        if not p.endswith((".pdf", ".png", ".woff2", ".jpg")) and SECRETS.search(d.decode("utf-8", "replace")):
+            raise SystemExit(f"{p}: sisältää tunnukselta näyttävän merkkijonon – ei työnnetä")
 
 
 def git_sha(data: bytes) -> str:
@@ -143,13 +161,15 @@ def main():
     ap.add_argument("-m", "--message", default="LAKI-TV: sisällön päivitys")
     ap.add_argument("--via", choices=["auto", "api", "git"], default="auto")
     ap.add_argument("--remote", help="git-osoite (oletus https://github.com/OMISTAJA/VARASTO.git)")
+    ap.add_argument("--allow", action="append", help="sallittu kohdepolku tai kansio/ (oletus: data.json ja source/)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
-    if "/" not in a.repo:
+    if not re.fullmatch(r"[\w.-]+/[\w.-]+", a.repo):
         raise SystemExit("varasto muodossa omistaja/nimi")
     files = collect(a.pairs)
     if not files:
         raise SystemExit("ei tiedostoja")
+    guard(files, a.allow or ALLOW_DEFAULT)
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     via = a.via
     if via == "auto":

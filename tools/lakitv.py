@@ -1698,7 +1698,7 @@ def digest(d, laji="aamu", sv=False, kanavat=None, aiheet=None, since=None, now_
     if laji == "aamu":
         since_dt = since or prev_send(now_dt, hour)
         added = lambda it: as_dt(it.get("lisatty") or it.get("julkaistu"))
-        new = [(k, it) for k, it in items if added(it) and since_dt < added(it) <= now_dt]
+        new = [(k, it) for k, it in items if added(it) and since_dt < added(it)]   # ei ylärajaa: lisätty-aika ei voi olla tulevaisuudessa, pieni kellopoikkeama ei saa pudottaa juttua
         subject = f"{_t('aamu_otsikko', sv)} {_wd(today, sv)} {_fd(today)}"
         vt_today = [v for v in vt_all if v.get("pvm") == today and ok_v(v)]
         eu_today = [v for v in eu_all if v.get("pvm") == today and ok_v(v)]
@@ -2112,7 +2112,9 @@ def cmd_viikkokatsaus(p, out="viikkokatsaus", kieli="fi"):
         os.remove(out + ".pdf")   # vanha PDF ei saa näyttää onnistumiselta
     except OSError:
         pass
-    for exe in ("/opt/pw-browsers/chromium", "chromium", "chromium-browser", "google-chrome"):
+    import glob
+    pw = sorted(glob.glob(os.path.expanduser("~/.cache/ms-playwright/chromium-*/chrome-linux*/chrome")) + glob.glob("/opt/pw-browsers/chromium-*/chrome-linux*/chrome"))
+    for exe in ("/opt/pw-browsers/chromium", *pw[::-1], "chromium", "chromium-browser", "google-chrome"):
         try:
             r = subprocess.run([exe, "--headless=new", "--no-sandbox", "--disable-gpu", "--no-pdf-header-footer", f"--print-to-pdf={os.path.abspath(out + '.pdf')}",
                                 "file://" + os.path.abspath(out + ".html")], capture_output=True, text=True, timeout=120, check=False)

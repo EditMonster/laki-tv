@@ -2940,16 +2940,25 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) tick
 const tv = document.getElementById("tv");
 function fit() {
   const vw = document.documentElement.clientWidth, vh = window.innerHeight;
-  const narrow = vw < 600;
-  const sx = narrow ? 1 : 1.2;
-  const padX = narrow ? .55 : 1.1, padY = narrow ? .6 : .9;
+  const narrow = vw < 600, low = vh < 520 && !narrow;   /* narrow: puhelin pystyssä; low: puhelin vaakaan */
+  /* Mobiilissa merkit ovat 16 % kapeampia (sx .84), jotta 40 merkin rivi mahtuu isommalla kirjasimella */
+  const sx = narrow ? .84 : 1.2;
+  const padX = narrow ? .15 : 1.1, padY = narrow ? .3 : .9;
   document.documentElement.style.setProperty("--sx", sx);
   tv.style.padding = `${padY}em ${padX}em`;
   const side = document.body.classList.contains("kbd-open") && vw >= 960 ? 306 : 0;
+  /* Mobiilissa sivunumerokenttä siirtyy selausnappien väliin, muuten valikkopalkkiin */
+  const pgbox = document.querySelector(".pgbox"), nav2 = document.querySelector(".nav2"), bar = document.querySelector(".bar");
+  if (pgbox && nav2 && bar) {
+    if (narrow && pgbox.parentNode !== nav2) nav2.insertBefore(pgbox, document.getElementById("bNext"));
+    else if (!narrow && pgbox.parentNode !== bar) bar.insertBefore(pgbox, bar.querySelector(".sp"));
+  }
   const ctrl = document.getElementById("ctrl"), ch = ctrl ? ctrl.offsetHeight : 120;
-  const availW = vw - 32 - 22 - side;
-  const availH = Math.max(vh - 36 - 14 - 22 - ch, 260);
-  const fs = Math.floor(Math.max(8, Math.min(availW / (24 * sx + 2 * padX), availH / (25 + 2 * padY), 44)));
+  /* Mobiilissa ruutu täyttää leveyden (reunus 4 px + sivun reunat 4 px); korkeus ei rajoita, sivua vieritetään tarvittaessa */
+  const availW = narrow ? vw - 8 - 8 - 2 : vw - 32 - 22 - side;
+  const availH = narrow || low ? Infinity : Math.max(vh - 36 - 14 - 22 - ch, 260);
+  const raw = Math.max(8, Math.min(availW / (24 * sx + 2 * padX), availH / (25 + 2 * padY), 44));
+  const fs = narrow ? Math.floor(raw * 2) / 2 : Math.floor(raw);
   tv.style.fontSize = fs + "px";
   /* Mitataan todellinen rivinleveys, jotta 40 merkkiä täyttää ruudun tarkasti */
   const w = rowsEl.offsetWidth;

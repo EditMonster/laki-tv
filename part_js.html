@@ -2905,13 +2905,14 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) tick
 const tv = document.getElementById("tv");
 function fit() {
   const vw = document.documentElement.clientWidth, vh = window.innerHeight;
-  const wide = vw >= 960, narrow = vw < 600;
+  const narrow = vw < 600;
   const sx = narrow ? 1 : 1.2;
   const padX = narrow ? .55 : 1.1, padY = narrow ? .6 : .9;
   document.documentElement.style.setProperty("--sx", sx);
   tv.style.padding = `${padY}em ${padX}em`;
-  const availW = wide ? vw - 32 - 232 - 44 - 24 : vw - 32 - 22;
-  const availH = wide ? vh - 64 : Math.max(vh * 0.9, 320);
+  /* Ruutu ylhäällä, kaukosäädin alla: ruutu saa leveyden ja 90 % korkeudesta, enintään 28 px:n merkit */
+  const availW = vw - 32 - 22;
+  const availH = Math.max(vh * 0.9, 320);
   const fs = Math.floor(Math.max(8, Math.min(availW / (24 * sx + 2 * padX), availH / (25 + 2 * padY), 28)));
   tv.style.fontSize = fs + "px";
   /* Mitataan todellinen rivinleveys, jotta 40 merkkiä täyttää ruudun tarkasti */

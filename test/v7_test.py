@@ -1,11 +1,10 @@
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """v7: seuraa asiaa (108), kalenteri (paneeli, .ics, Google/Outlook-linkit), jakelu (109, feed/kalenteri/viikkokatsaus), ei alasivukiertoa."""
-import os as _os
-ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 import json, subprocess, os, re
 from playwright.sync_api import sync_playwright
 import datetime as _dt, zoneinfo as _zi
 _FIXED = _dt.datetime.combine(_dt.datetime.now(_zi.ZoneInfo("Europe/Helsinki")).date(), _dt.time(21, 0), tzinfo=_zi.ZoneInfo("Europe/Helsinki"))   # testikello: tänään klo 21 Helsinki
-BASE = ROOT + "/"
+BASE = "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/"
 ok = []
 def check(name, cond, info=""):
     ok.append(bool(cond)); print(("OK   " if cond else "FAIL ") + name + ("" if cond else f"  -> {info}"))
@@ -18,7 +17,7 @@ with sync_playwright() as p:
     # 1) selain ilman claude-kykyjä: seuranta localStorageen, kalenteri data-URL:llä
     pg = b.new_page(viewport={"width": 1440, "height": 900}); errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.clock.set_fixed_time(_FIXED)
-    pg.goto("file://" + BASE + "test/fixture.html"); pg.wait_for_timeout(500)
+    pg.goto("file://" + BASE + "test/fixture.html"); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     check("kHold poistettu", pg.evaluate("!document.getElementById('kHold') && !!document.getElementById('kFollow')"))
     t = allrows(pg, 199)
     check("ohje: ei HOLD-riviä", "PYSÄYTÄ ALASIVUJEN" not in t.upper() and "HOLD" not in t)
@@ -83,7 +82,7 @@ with sync_playwright() as p:
       window.claude = { use: async n => n === 'db' ? {doc: mkdoc, collection: c => ({add: async v => ({id:'x'})})} : n === 'user' ? {id: async () => 'u_test123', isOwner: async () => true} : n === 'downloads' ? {save: async r => { window.__saves.push(r); return {status:'saved'}; }} : null };
     """)
     e2 = []; pg2.on("pageerror", lambda e: e2.append(str(e)))
-    pg2.goto("file://" + BASE + "test/fixture.html"); pg2.wait_for_timeout(500)
+    pg2.goto("file://" + BASE + "test/fixture.html"); pg2.wait_for_timeout(500); pg2.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg2.wait_for_timeout(300)
     pg2.evaluate("window.LAKITV.go(741)"); pg2.wait_for_timeout(200)
     pg2.evaluate("window.LAKITV.show(741, window.LAKITV.getPage(741).subs.length - 1)"); pg2.wait_for_timeout(200)
     pg2.click("a[data-act='seuraa']"); pg2.wait_for_timeout(600)

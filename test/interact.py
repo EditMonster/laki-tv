@@ -1,11 +1,10 @@
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """Toiminnallisuustestit oikeilla näppäin-, hiiri- ja kosketustapahtumilla."""
-import os as _os
-ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 import json
 from playwright.sync_api import sync_playwright
 import datetime as _dt, zoneinfo as _zi
 _FIXED = _dt.datetime.combine(_dt.datetime.now(_zi.ZoneInfo("Europe/Helsinki")).date(), _dt.time(21, 0), tzinfo=_zi.ZoneInfo("Europe/Helsinki"))   # testikello: tänään klo 21 Helsinki
-URL = "file://" + ROOT + "/test/fixture.html"
+URL = "file:///tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/test/fixture.html"
 results = []
 def check(name, cond, info=""):
     results.append(("OK  " if cond else "FAIL") + " " + name + (f"  [{info}]" if info and not cond else ""))
@@ -28,7 +27,7 @@ with sync_playwright() as p:
     pg = ctx.new_page()
     errs = []
     pg.on("pageerror", lambda e: errs.append(str(e)))
-    pg.goto(URL); pg.wait_for_timeout(400)
+    pg.goto(URL); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     check("aloitus etusivulla", cur(pg) == 100)
     check("isot kirjaimet oletuksena", pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
     check("LakiCaps käytössä", "LakiCaps" in pg.evaluate("getComputedStyle(document.getElementById('rows')).fontFamily"))
@@ -166,7 +165,7 @@ with sync_playwright() as p:
     m = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True, device_scale_factor=2)
     mp = m.new_page(); errs2 = []
     mp.on("pageerror", lambda e: errs2.append(str(e)))
-    mp.goto(URL + "#p190"); mp.wait_for_timeout(500)
+    mp.goto(URL + "#p190"); mp.wait_for_timeout(500); mp.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); mp.wait_for_timeout(300)
     check("mobiili: ei vaakavieritystä", mp.evaluate("document.documentElement.scrollWidth <= innerWidth"), mp.evaluate("[document.documentElement.scrollWidth, innerWidth]"))
     swipe = """(dx) => { const s = document.getElementById('screen'); const r = s.getBoundingClientRect();
       const mk = (x) => new Touch({identifier: 1, target: s, clientX: x, clientY: r.top + 100});

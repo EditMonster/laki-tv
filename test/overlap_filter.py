@@ -1,9 +1,8 @@
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """Päällekirjoitukset suodattimen ollessa päällä (pitkät aihenimet) molemmilla kielillä."""
-import os as _os
-ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 import json
 from playwright.sync_api import sync_playwright
-URL = "file://" + ROOT + "/test/fixture.html"
+URL = "file:///tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/test/fixture.html"
 JS = """(lang) => {
   const L = window.LAKITV; L.setLang(lang);
   const out = [];
@@ -25,7 +24,7 @@ with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(viewport={"width": 1440, "height": 900})
     errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.add_init_script("window.__ovl = []")
-    pg.goto(URL); pg.wait_for_timeout(400)
+    pg.goto(URL); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     for lang in ("fi", "sv"):
         out = pg.evaluate(JS, lang)
         print(lang, json.dumps(out, ensure_ascii=False)[:3000] or "OK")

@@ -1,11 +1,10 @@
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """Englanti: kielivalinta, juttusivu, selko, arkisto, tulostaulu, visa, haku, tilaus, staattiset tekstit, EN_S-kattavuus."""
-import os as _os
-ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 import json, re, sys, subprocess
 from playwright.sync_api import sync_playwright
 import datetime as _dt, zoneinfo as _zi
 _FIXED = _dt.datetime.combine(_dt.datetime.now(_zi.ZoneInfo("Europe/Helsinki")).date(), _dt.time(21, 0), tzinfo=_zi.ZoneInfo("Europe/Helsinki"))   # testikello: tänään klo 21 Helsinki
-BASE = ROOT + "/"
+BASE = "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/"
 ok = []
 def check(name, cond, info=""):
     ok.append(bool(cond)); print(("OK   " if cond else "FAIL ") + name + ("" if cond else f"  -> {info}"))
@@ -33,7 +32,7 @@ with sync_playwright() as p:
     pg = b.new_page(viewport={"width": 1440, "height": 900})
     pg.clock.set_fixed_time(_FIXED)
     errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
-    pg.goto("file://" + BASE + "test/fixture.html"); pg.wait_for_timeout(500)
+    pg.goto("file://" + BASE + "test/fixture.html"); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     pg.click("#kEn"); pg.wait_for_timeout(400)
     t = rows(pg)
     check("EN: etusivu englanniksi", "TOP NEWS" in t and "CHANNEL LIST" in t and "LEGAL" in t, t[:300])
@@ -79,7 +78,7 @@ with sync_playwright() as p:
       window.claude = { use: async n => n === 'db' ? {doc: p => ({get: async () => ({exists:false}), set: async v => { window.__sets.push([p, v]); }, delete: async () => {}}), collection: c => ({add: async v => ({id:'x'})})} : n === 'user' ? {id: async () => 'u_test123'} : null };
     """)
     e2 = []; pg2.on("pageerror", lambda e: e2.append(str(e)))
-    pg2.goto("file://" + BASE + "test/fixture.html"); pg2.wait_for_timeout(500)
+    pg2.goto("file://" + BASE + "test/fixture.html"); pg2.wait_for_timeout(500); pg2.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg2.wait_for_timeout(300)
     pg2.click("#kEn"); pg2.wait_for_timeout(300); pg2.click("#kSub"); pg2.wait_for_timeout(500)
     labels = pg2.evaluate("[...document.querySelectorAll('#paneKal h3')].map(l => l.textContent.trim())")
     check("EN: jakelupaneeli englanniksi", any("Next 30 days" in l for l in labels) and any("Feeds and weekly review" in l for l in labels), labels[:12])

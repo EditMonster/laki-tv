@@ -1,3 +1,4 @@
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """v11-regressiot: toisen katselmuksen korjaukset (sivu)."""
 import json, subprocess, sys, datetime, os
 from playwright.sync_api import sync_playwright
@@ -34,7 +35,7 @@ with sync_playwright() as p:
     pg = b.new_page(viewport={"width": 1280, "height": 820}); errs = []
     pg.clock.set_fixed_time(_FIXED)
     pg.on("pageerror", lambda e: errs.append(str(e)))
-    pg.goto(URL + "#p101"); pg.wait_for_timeout(600)
+    pg.goto(URL + "#p101"); pg.wait_for_timeout(600); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     pg.evaluate("window.__ovl = []")
     # 1. EDUSKUNNASSA näyttää uuden vaiheen
     t = "\n".join(pg.evaluate(allsubs(101)))
@@ -55,11 +56,11 @@ with sync_playwright() as p:
     moved = d2["kanavat"]["kko"].pop(); moved["k"] = "kko"; d2.setdefault("arkisto", []).append(moved)
     json.dump(d2, open("/tmp/v11b_data.json", "w"), ensure_ascii=False)
     subprocess.run([sys.executable, B + "tools/lakitv.py", "inject", B + "test/fixture.html", "/tmp/v11b_data.json", "/tmp/v11b_page.html", "--force"], capture_output=True, text=True)
-    pg.goto("file:///tmp/v11b_page.html#p108"); pg.wait_for_timeout(600)
+    pg.goto("file:///tmp/v11b_page.html#p108"); pg.wait_for_timeout(600); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     t = "\n".join(pg.evaluate(allsubs(108)))
     T = t.upper()
     ok("MUUTTUNUT" in T and "▶ ARKISTOSSA" in T and T.index("▶ ARKISTOSSA") < (T.index("EI MUUTOKSIA") if "EI MUUTOKSIA" in T else 10**6), "108: arkistoon siirtynyt juttu on MUUTTUNUT-osiossa", t[:400])
-    pg.goto(URL); pg.wait_for_timeout(500)
+    pg.goto(URL); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     # 5. 850 englanniksi: sivunumero näkyy värinäppäimessä
     pg.evaluate("window.LAKITV.setLang('en'); window.LAKITV.show(850,0,true)"); pg.wait_for_timeout(100)
     ft = pg.evaluate("document.getElementById('ft0').textContent")

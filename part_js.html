@@ -1616,8 +1616,9 @@ function buildHelp() {
   const P = (fi, sv, en) => [...textRows(S(fi, sv, en), "w"), gap()];
   const body = [
     head(S("KÄYTTÖ", "ANVÄNDNING"), "y"),
-    ...textRows(S("Näppäile kolminumeroinen sivunumero kaukosäätimestä tai näppäimistöltä. Sivunumeroita voi myös klikata.",
-      "Slå ett tresiffrigt sidnummer med fjärrkontrollen eller tangentbordet. Du kan också klicka på sidnumren."), "w"),
+    ...textRows(S("Ruudun alla on selausnapit ja valikko: etusivu, kanavat, haku, ohje, näppäimistö ja sivunumerokenttä. Näppäimistö avaa kaukosäätimen sivupaneeliin.",
+      "Under rutan finns bläddringsknappar och en meny: förstasida, kanaler, sök, hjälp, tangentbord och sidnummerfält. Tangentbordet öppnar fjärrkontrollen i en sidopanel.",
+      "Below the screen are browse buttons and a menu: home, channels, search, help, keypad and a page-number box. The keypad opens the remote control in a side panel."), "w"),
     gap(),
     K("0–9", S("sivunumero", "sidnummer")),
     K("▲ ▼", S("seuraava / edellinen sivu", "nästa / föregående sida")),
@@ -1630,6 +1631,7 @@ function buildHelp() {
     K("?", S("näytä visan vastaukset (150)", "visa quizsvaren (150)", "show the quiz answers (150)")),
     K("C", S("isot kirjaimet päälle / pois", "versaler av / på")),
     K("I / O", S("etusivu 100 / ohje 199", "start 100 / hjälp 199")),
+    K("K", S("näppäimistö auki / kiinni", "tangentbord på / av", "keypad on / off")),
     {pageBreak:true},
     head(S("UUTTA", "NYTT"), "y"),
     ...P("Sivu 102 kokoaa viikon (ma–su) tärkeimmät jutut. Lista muuttuu vain, kun viikolle tulee tärkeämpi juttu.",
@@ -2784,7 +2786,7 @@ function applyStatic() {
     });
   }
   document.documentElement.lang = LANG;
-  for (const [id, l] of [["kFi", "fi"], ["kSv", "sv"], ["kEn", "en"]]) { const b = document.getElementById(id); b.classList.toggle("on", LANG === l); b.setAttribute("aria-pressed", String(LANG === l)); }
+  for (const [id, l] of [["kFi", "fi"], ["kSv", "sv"], ["kEn", "en"], ["bFi", "fi"], ["bSv", "sv"], ["bEn", "en"]]) { const b = document.getElementById(id); b.classList.toggle("on", LANG === l); b.setAttribute("aria-pressed", String(LANG === l)); }
 }
 function setLang(l) {
   const nl = LANGS.includes(l) ? l : "fi";
@@ -2830,6 +2832,37 @@ document.getElementById("kNext").addEventListener("click", () => step(1));
 document.getElementById("kPrev").addEventListener("click", () => step(-1));
 document.getElementById("kSubNext").addEventListener("click", () => subStep(1));
 document.getElementById("kSubPrev").addEventListener("click", () => subStep(-1));
+/* Selausnapit: ensin jutun alasivut, sitten seuraava tai edellinen sivu */
+document.getElementById("bNext").addEventListener("click", () => { if (page.subs.length > 1 && state.sub < page.subs.length - 1) subStep(1); else step(1); });
+document.getElementById("bPrev").addEventListener("click", () => { if (page.subs.length > 1 && state.sub > 0) subStep(-1); else step(-1); });
+document.getElementById("bHome").addEventListener("click", () => { blink(); go(100); });
+document.getElementById("bList").addEventListener("click", () => document.getElementById("kList").click());
+document.getElementById("bSearch").addEventListener("click", () => document.getElementById("kSearch").click());
+document.getElementById("bHelp").addEventListener("click", () => { blink(); go(199); });
+document.getElementById("bFi").addEventListener("click", () => { blink(); setLang("fi"); });
+document.getElementById("bSv").addEventListener("click", () => { blink(); setLang("sv"); });
+document.getElementById("bEn").addEventListener("click", () => { blink(); setLang("en"); });
+const pgIn = document.getElementById("bPage");
+pgIn.addEventListener("input", () => {
+  pgIn.value = pgIn.value.replace(/\D/g, "").slice(0, 3);
+  if (pgIn.value.length === 3) { const n = +pgIn.value; pgIn.value = ""; if (n >= 100 && n <= 899) { blink(); go(n); } pgIn.blur(); }
+});
+pgIn.addEventListener("keydown", e => { if (e.key === "Escape") { pgIn.value = ""; pgIn.blur(); } });
+new MutationObserver(() => { const m = /\d{3}/.exec(document.getElementById("rmNow").textContent); if (m) pgIn.placeholder = m[0]; })
+  .observe(document.getElementById("rmNow"), {childList:true, characterData:true, subtree:true});
+/* Näppäimistö sivupaneelissa */
+const kbd = document.getElementById("kbd"), bKbd = document.getElementById("bKbd");
+function setKbd(open, focus = true) {
+  kbd.classList.toggle("open", open); kbd.inert = !open;
+  document.body.classList.toggle("kbd-open", open);
+  bKbd.setAttribute("aria-expanded", String(open));
+  store.set("kbd", open ? "1" : "");
+  if (focus) (open ? document.getElementById("kbdClose") : bKbd).focus({preventScroll:true});
+  fit();
+}
+bKbd.addEventListener("click", () => setKbd(!kbd.classList.contains("open")));
+document.getElementById("kbdClose").addEventListener("click", () => setKbd(false));
+kbd.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); setKbd(false); } });
 document.addEventListener("keydown", e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (panel.open) return;
@@ -2854,6 +2887,8 @@ document.addEventListener("keydown", e => {
   else if (k === "?") { blink(); setReveal(!state.reveal); }
   else if (k === "i" || k === "I" || k === "Home") { blink(); go(100); }
   else if (k === "o" || k === "O") { blink(); go(199); }
+  else if (k === "k" || k === "K") setKbd(!kbd.classList.contains("open"));
+  else if (k === "Escape" && kbd.classList.contains("open")) setKbd(false);
   else handled = false;
   if (handled) e.preventDefault();
 });
@@ -2910,14 +2945,17 @@ function fit() {
   const padX = narrow ? .55 : 1.1, padY = narrow ? .6 : .9;
   document.documentElement.style.setProperty("--sx", sx);
   tv.style.padding = `${padY}em ${padX}em`;
-  /* Ruutu ylhäällä, kaukosäädin alla: ruutu saa leveyden ja 90 % korkeudesta, enintään 28 px:n merkit */
-  const availW = vw - 32 - 22;
-  const availH = Math.max(vh * 0.9, 320);
-  const fs = Math.floor(Math.max(8, Math.min(availW / (24 * sx + 2 * padX), availH / (25 + 2 * padY), 28)));
+  const side = document.body.classList.contains("kbd-open") && vw >= 960 ? 306 : 0;
+  const ctrl = document.getElementById("ctrl"), ch = ctrl ? ctrl.offsetHeight : 120;
+  const availW = vw - 32 - 22 - side;
+  const availH = Math.max(vh - 36 - 14 - 22 - ch, 260);
+  const fs = Math.floor(Math.max(8, Math.min(availW / (24 * sx + 2 * padX), availH / (25 + 2 * padY), 44)));
   tv.style.fontSize = fs + "px";
   /* Mitataan todellinen rivinleveys, jotta 40 merkkiä täyttää ruudun tarkasti */
   const w = rowsEl.offsetWidth;
   document.documentElement.style.setProperty("--kx", w ? (24 * sx * fs / w).toFixed(5) : String(sx));
+  document.documentElement.style.setProperty("--tvw", tv.offsetWidth + "px");
+  if (ctrl && ctrl.offsetHeight !== ch && !fit.again) { fit.again = true; fit(); fit.again = false; }
 }
 let fitRaf = 0;
 window.addEventListener("resize", () => { cancelAnimationFrame(fitRaf); fitRaf = requestAnimationFrame(fit); });
@@ -2930,8 +2968,10 @@ setCaps(state.caps, false);
 renderFilterBadge();
 { const h0 = pageFromHash(location.hash); if (h0) { if (h0.day) state.day = h0.day; if (h0.ai) state.arch = h0.ai; } show(h0 ? h0.n : 100, 0); }
 fit();
+if (store.get("kbd") === "1" && window.innerWidth >= 960) setKbd(true, false);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 try { sessionStorage.removeItem("lakitv:recover"); } catch (e) {}
-window.LAKITV = {state, getPage, go, show, buildAll, NUMS:() => NUMS, TOPICS, CHANNELS, fillerPage, setLang, weekTop, allKnown, followList, toggleFollow, icsText, kalEventsUpcoming, KAL, fileUrl, itemIndexGet:n => itemIndex.get(n), cleanFollows, copyText};
+window.LAKITV = {state, getPage, go, show, buildAll, setKbd, NUMS:() => NUMS, TOPICS, CHANNELS, fillerPage, setLang, weekTop, allKnown, followList, toggleFollow, icsText, kalEventsUpcoming, KAL, fileUrl, itemIndexGet:n => itemIndex.get(n), cleanFollows, copyText};
 })();
 </script>
+

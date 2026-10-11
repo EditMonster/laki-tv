@@ -1,12 +1,11 @@
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """Uudet ominaisuudet: viikon tärkeimmät (102), kalenteri (103/104), arkisto (105), ruotsi, tilauslomake."""
-import os as _os
-ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 import json, copy, subprocess, datetime, sys
 from zoneinfo import ZoneInfo
 from playwright.sync_api import sync_playwright
 import datetime as _dt, zoneinfo as _zi
 _FIXED = _dt.datetime.combine(_dt.datetime.now(_zi.ZoneInfo("Europe/Helsinki")).date(), _dt.time(21, 0), tzinfo=_zi.ZoneInfo("Europe/Helsinki"))   # testikello: tänään klo 21 Helsinki
-BASE = ROOT + "/"
+BASE = "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/"
 HKI = ZoneInfo("Europe/Helsinki")
 ok = []
 def check(name, cond, info=""):
@@ -54,17 +53,17 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errs.append(str(e)))
     # 1) viikon järjestys ja pysyvyys
     base = [item(1, 5, ts(d0, 8), ts(d0, 8)), item(2, 5, ts(d0, 9), ts(d0, 9)), item(3, 4, ts(d0, 7), ts(d0, 7)), item(4, 3, ts(d0, 10), ts(d0, 10))]
-    make(base); pg.goto("file:///tmp/t_page.html"); pg.wait_for_timeout(500)
+    make(base); pg.goto("file:///tmp/t_page.html"); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     ids = week_titles(pg)
     check("102: paino ensin, sitten lisäysaika", ids[:4] == ["T:1", "T:2", "T:3", "T:4"], ids)
     rows = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')")
     check("102: otsikko VIIKON TÄRKEIMMÄT", "VIIKON TÄRKEIMMÄT" in rows.upper(), rows[:200])
     later_same = base + [item(5, 5, ts(d0, 6), ts(today, 23, 50))]   # julkaistu aiemmin, mutta tuli LAKI-TV:hen myöhemmin
-    make(later_same); pg.goto("file:///tmp/t_page.html"); pg.wait_for_timeout(400)
+    make(later_same); pg.goto("file:///tmp/t_page.html"); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     ids2 = week_titles(pg)
     check("102: samanpainoinen myöhemmin tullut ei syrjäytä", ids2[:3] == ["T:1", "T:2", "T:5"], ids2)
     # 2) kalenteri ja päivän tilanne
-    make(base); pg.goto("file:///tmp/t_page.html"); pg.wait_for_timeout(400)
+    make(base); pg.goto("file:///tmp/t_page.html"); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     pg.evaluate("window.LAKITV.go(103)"); pg.wait_for_timeout(400)
     cells = pg.locator("#rows a[data-day]")
     check("103: päiväsolut linkkeinä", cells.count() >= 31, cells.count())
@@ -78,16 +77,16 @@ with sync_playwright() as p:
     check("104: punainen = edellinen päivä", pg.evaluate("window.LAKITV.state.day") == (today - datetime.timedelta(days=2)).isoformat(), pg.evaluate("window.LAKITV.state.day"))
     pg.keyboard.press("Backspace"); pg.wait_for_timeout(400)
     check("takaisin palaa edelliseen päivään", pg.evaluate("window.LAKITV.state.day") == yday and pg.evaluate("window.LAKITV.state.current") == 104)
-    pg.goto("file:///tmp/t_page.html#d=" + yday); pg.reload(); pg.wait_for_timeout(500)
+    pg.goto("file:///tmp/t_page.html#d=" + yday); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     check("#d= avaa päivän suoraan", pg.evaluate("window.LAKITV.state.current") == 104 and pg.evaluate("window.LAKITV.state.day") == yday)
     # päiväsivun etusivu ei näytä myöhemmin lisättyjä
-    make(base + [item(9, 5, ts(today, 0, 5), ts(today, 0, 5))]); pg.goto("file:///tmp/t_page.html#d=" + yday); pg.reload(); pg.wait_for_timeout(500)
+    make(base + [item(9, 5, ts(today, 0, 5), ts(today, 0, 5))]); pg.goto("file:///tmp/t_page.html#d=" + yday); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')")
     check("104: tänään lisätty ei näy eilisen etusivulla", "TESTIJUTTU 9" not in txt.upper(), txt[:400])
     # 3) arkisto
     arch = [{"id": "ARK:1", "k": "kho", "tunnus": "ARK:1", "otsikko": "ARKISTOITU JUTTU", "otsikko_sv": "ARKIVERAD NYHET", "pvm": yday, "julkaistu": yday + "T10:00",
              "paino": 4, "aiheet": ["vero"], "teksti": "Arkiston teksti.", "teksti_sv": "Arkivets text.", "tekstityyppi": "tiivistelmä", "lahde": "https://example.org/a"}]
-    make(base, arch); pg.goto("file:///tmp/t_page.html#j=ARK%3A1"); pg.reload(); pg.wait_for_timeout(500)
+    make(base, arch); pg.goto("file:///tmp/t_page.html#j=ARK%3A1"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')")
     check("#j= avaa arkistojutun 105", pg.evaluate("window.LAKITV.state.current") == 105 and "ARKISTOITU JUTTU" in txt.upper(), txt[:200])
     pg.evaluate("window.LAKITV.go(104, false, {day:'%s'})" % yday); pg.wait_for_timeout(400)
@@ -98,7 +97,7 @@ with sync_playwright() as p:
     pg.keyboard.press("Enter"); pg.wait_for_timeout(500)
     check("hakutulos avaa 105", pg.evaluate("window.LAKITV.state.current") == 105)
     # 4) ruotsi
-    make(base); pg.goto("file:///tmp/t_page.html#p100"); pg.reload(); pg.wait_for_timeout(500)
+    make(base); pg.goto("file:///tmp/t_page.html#p100"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     pg.click("#kSv"); pg.wait_for_timeout(400)
     txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')")
     check("SV: etusivu ruotsiksi", "HUVUDNYHETER" in txt.upper() and "TESTNYHET 1" in txt.upper(), txt[:300])
@@ -125,7 +124,7 @@ with sync_playwright() as p:
       window.claude = { use: async n => n === 'db' ? {doc: ref} : n === 'user' ? {id: async () => 'u_test123', isOwner: async () => true} : null };
     """)
     e2 = []; pg2.on("pageerror", lambda e: e2.append(str(e)))
-    pg2.goto("file:///tmp/t_page.html"); pg2.wait_for_timeout(500)
+    pg2.goto("file:///tmp/t_page.html"); pg2.wait_for_timeout(500); pg2.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg2.wait_for_timeout(300)
     pg2.click("#kSub"); pg2.wait_for_timeout(800)
     check("omistaja näkee webhook-lomakkeen", pg2.is_visible("#jakeluAdmin"))
     pg2.fill("#whSlack", "http://hooks.slack.com/x"); pg2.click("#jakeluAdmin button"); pg2.wait_for_timeout(200)
@@ -141,7 +140,7 @@ with sync_playwright() as p:
     sw = pg2.evaluate("document.documentElement.scrollWidth <= innerWidth")
     check("mobiili: ei vaakavieritystä paneelissa", sw)
     # 7) aamukooste 107
-    make(base + [item(7, 5, ts(today, 6, 0), ts(today, 6, 30))]); pg.goto("file:///tmp/t_page.html#p107"); pg.reload(); pg.wait_for_timeout(500)
+    make(base + [item(7, 5, ts(today, 6, 0), ts(today, 6, 30))]); pg.goto("file:///tmp/t_page.html#p107"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')")
     check("107: aamukooste rakentuu", "AAMUKOOSTE" in txt.upper() and ("PÄIVÄN KÄRKI" in txt.upper() or "UUDET JUTUT" in txt.upper()), txt[:300])
     # 8) Eduskunnassa (he_muutokset), TILA 198, palaute
@@ -151,7 +150,7 @@ with sync_playwright() as p:
     d["_ajot"] = [{"aika": ts(today, 6, 55), "uusia": 3, "juttuja": 100, "hiljaa": ["KKO"]}]
     json.dump(d, open("/tmp/t_data.json", "w"), ensure_ascii=False)
     subprocess.run(["python3", BASE + "tools/lakitv.py", "inject", BASE + "test/fixture.html", "/tmp/t_data.json", "/tmp/t_page.html", "--force"], capture_output=True, text=True)
-    pg.goto("file:///tmp/t_page.html#p101"); pg.reload(); pg.wait_for_timeout(500)
+    pg.goto("file:///tmp/t_page.html#p101"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     alltxt = pg.evaluate("""() => { const L = window.LAKITV; let t = ''; const n = L.getPage(101).subs.length; for (let s = 0; s < n; s++) { L.show(101, s); t += [...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n'); } return t; }""")
     check("101: EDUSKUNNASSA-osio vaihemuutoksesta", "EDUSKUNNASSA" in alltxt and "SYYTTÄJÄLAITOSLAKI" in alltxt.upper(), alltxt[:200])
     pg.evaluate("window.LAKITV.go(720)"); pg.wait_for_timeout(400)
@@ -163,7 +162,7 @@ with sync_playwright() as p:
     pg3 = b.new_page(viewport={"width": 1280, "height": 820})
     pg3.clock.set_fixed_time(_FIXED)
     e3 = []; pg3.on("pageerror", lambda e: e3.append(str(e)))
-    pg3.goto("file:///tmp/t_page.html#p201"); pg3.wait_for_timeout(500)
+    pg3.goto("file:///tmp/t_page.html#p201"); pg3.wait_for_timeout(500); pg3.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg3.wait_for_timeout(300)
     alltxt = pg3.evaluate("""() => { const L = window.LAKITV; let t = ''; const n = L.getPage(201).subs.length; for (let s = 0; s < n; s++) { L.show(201, s); t += [...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n'); } return t; }""")
     check("palauterivi osoittaa GitHub-issueihin", "ILMOITA VIRHEESTÄ" in alltxt and any(h.startswith("https://github.com/") and h.endswith("/issues") for h in pg3.evaluate("[...document.querySelectorAll('#rows a[href]')].map(a => a.href)")), alltxt[-200:])
     check("ei JS-virheitä", not errs and not e2 and not e3, errs + e2 + e3)

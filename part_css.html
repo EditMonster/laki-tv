@@ -40,7 +40,7 @@ body{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
   padding-inline:16px;padding-block:20px;
 }
-/* Ruutu on aina ylhäällä ja kaukosäädin sen alla – sama ilme kaikilla näytöillä. */
+@media (min-width:960px){.app{flex-direction:row;gap:44px}}
 
 /* ---------- Ruutu ---------- */
 .tv{
@@ -102,6 +102,10 @@ body{
   grid-template-columns:1.25fr 1fr;
   grid-template-areas:"led led" "opt opt" "colors colors" "pad fn" "pad sub" "brand brand";
 }
+@media (min-width:960px){
+  .remote{width:232px;flex:none;border-radius:44px 44px 30px 30px;padding:22px 18px 24px;
+    grid-template-columns:1fr;grid-template-areas:"led" "opt" "fn" "colors" "pad" "sub" "brand";gap:16px}
+}
 .rm-led{grid-area:led;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-inline:4px}
 .led{width:7px;height:7px;border-radius:50%;background:#3a1210;box-shadow:inset 0 1px 1px rgba(0,0,0,.6);flex:none}
 .led.on{background:var(--led);box-shadow:0 0 8px 2px rgba(255,59,48,.55)}
@@ -119,12 +123,11 @@ body{
 .seg .k.on{background:linear-gradient(180deg,var(--key-top),var(--key-bot));color:var(--amber);box-shadow:inset 0 0 0 1px rgba(255,207,58,.35)}
 .rm-opt .k.sub{height:32px;padding:0 10px;color:#9ff5b0}
 .rm-fn{grid-area:fn;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;align-content:start}
+@media (min-width:960px){.rm-fn{grid-template-columns:repeat(3,1fr)}}
 .rm-colors{grid-area:colors;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .rm-pad{grid-area:pad;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-content:start}
 .rm-sub{grid-area:sub;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:end}
-.rm-brand{grid-area:brand;display:flex;justify-content:center;align-items:center;gap:10px;padding-top:2px}
-.rm-brand-t{display:grid;gap:3px;text-align:left}
-.rm-mark{display:flex;flex:none}
+.rm-brand{grid-area:brand;text-align:center;display:grid;gap:3px;padding-top:2px}
 .rm-brand b{font:700 13px/1 "IBM Plex Sans Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;letter-spacing:.32em;color:#c9ccd3}
 .rm-brand small{font:500 10px/1.3 "IBM Plex Sans Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;letter-spacing:.16em;color:var(--key-dim);text-transform:uppercase}
 .k{
@@ -233,6 +236,43 @@ label.pn-help{display:block}
 .pn-btn:hover{background:#45474f}
 .pn-btn.pri{background:var(--amber);color:#1c1600}
 .pn-btn.pri:hover{background:#ffd95e}
+/* ---------- Uusi asettelu: iso ruutu, selausnapit ja valikkopalkki; näppäimistö sivupaneelissa ---------- */
+.app{flex-direction:column;gap:14px;padding-block:18px}
+@media (min-width:960px){.app{flex-direction:column;gap:14px}body.kbd-open .app{padding-right:306px}}
+.ctrl{width:var(--tvw,100%);max-width:100%;display:grid;gap:10px}
+.nav2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.nav2 .k{height:50px;font-size:15px;letter-spacing:.14em;border-radius:12px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px;border-radius:14px;
+  background:linear-gradient(180deg,var(--plastic-top),var(--plastic-bot));box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px #0a0a0c}
+.bar .k.sm{padding:0 12px;height:36px;font-size:12px;letter-spacing:.08em}
+.bar .k.sm[aria-expanded=true]{color:var(--amber);box-shadow:0 3px 0 var(--key-shadow),inset 0 0 0 1px rgba(255,207,58,.45)}
+.bar .sp{flex:1}
+.bar .seg{flex:none}
+.bar .seg .k{flex:none;width:38px;height:30px}
+.pgbox{display:flex;align-items:center;gap:6px;font:600 11px/1 "IBM Plex Sans Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;letter-spacing:.1em;color:var(--key-dim);text-transform:uppercase}
+.pgbox input{width:3.6em;height:34px;box-sizing:border-box;border:1px solid var(--bezel-edge);border-radius:9px;background:#000;color:var(--tt-y);
+  font:400 17px/1 "Bedstead",monospace;text-align:center;padding:0 4px}
+.pgbox input::placeholder{color:#8a8a40}
+.pgbox input:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.drawer{position:fixed;z-index:20;top:0;right:0;height:100%;width:290px;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;
+  background:var(--room);border-left:1px solid var(--bezel-edge);box-shadow:-20px 0 50px -20px rgba(0,0,0,.9);padding:14px 16px 24px;
+  transform:translateX(100%);visibility:hidden;transition:transform .2s ease-out,visibility .2s}
+.drawer.open{transform:none;visibility:visible}
+.dr-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.dr-head h2{margin:0;font:700 12px/1 "IBM Plex Sans Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;letter-spacing:.24em;color:var(--amber);text-transform:uppercase}
+.drawer .remote{margin:0 auto}
+@media (max-width:959px){
+  .drawer{top:auto;left:0;bottom:0;width:auto;height:auto;max-height:80vh;border-left:0;border-top:1px solid var(--bezel-edge);border-radius:20px 20px 0 0;transform:translateY(100%)}
+}
+@media (max-width:599px){
+  .bar{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .bar .sp{display:none}
+  .bar .k.sm{padding:0 4px;letter-spacing:.03em;font-size:11px}
+  .pgbox{justify-content:center}
+  .bar .seg{grid-column:1/-1}
+  .bar .seg .k{flex:1;width:auto}
+}
+@media (prefers-reduced-motion:reduce){.drawer{transition:none}}
 /* Tulostus: ruutu värillisenä, kaukosäädin pois */
-@media print{body{background:#fff}.remote,.glass,dialog{display:none !important}.tv,.rows,.row{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+@media print{body{background:#fff}.remote,.glass,dialog,.ctrl,.drawer{display:none !important}.tv,.rows,.row{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 </style>

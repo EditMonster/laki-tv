@@ -1,11 +1,10 @@
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """v9-regressiot: sivun bugikorjaukset."""
-import os as _os
-ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 import json, subprocess, sys, datetime
 from playwright.sync_api import sync_playwright
 import datetime as _dt, zoneinfo as _zi
 _FIXED = _dt.datetime.combine(_dt.datetime.now(_zi.ZoneInfo("Europe/Helsinki")).date(), _dt.time(21, 0), tzinfo=_zi.ZoneInfo("Europe/Helsinki"))   # testikello: tänään klo 21 Helsinki
-B = ROOT + "/"
+B = "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/"
 sys.path.insert(0, B + "tools"); import lakitv as L
 fails = []
 def ok(c, msg, extra=""):
@@ -35,7 +34,7 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errs.append(str(e)))
     # 1. poistunut seurattava
     pg.add_init_script("localStorage.setItem('lakitv:seuranta', JSON.stringify([{id:'gone-id', tunnus:'X', otsikko:'POISTUNUT JUTTU', k:'kko', tila:'pvm:2026-01-01', pvm:'2026-09-01'}]))")
-    pg.goto(URL + "#p108"); pg.wait_for_timeout(500)
+    pg.goto(URL + "#p108"); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     t = pg.evaluate(rows)
     ok("POISTUNUT JUTTU" in t and "LOPETA" in t, "108: poistuneella seurattavalla on LOPETA-linkki", t[:300])
     pg.click("#rows a[data-act='seuraa']"); pg.wait_for_timeout(200)
@@ -53,13 +52,13 @@ with sync_playwright() as p:
     pg.keyboard.press("Escape"); pg.wait_for_timeout(200)
     # 3-4. rikkinäiset syvälinkit
     for hs, exp in [("#d=2026-06-31", 104), ("#d=0000-00-00", 104), ("#p050", 100), ("#p999", 100), ("#000", 100)]:
-        pg.goto(URL + hs); pg.reload(); pg.wait_for_timeout(400)
+        pg.goto(URL + hs); pg.reload(); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
         cur = pg.evaluate("window.LAKITV.state.current"); t = pg.evaluate(rows)
         ok(cur == exp and "EI NÄY" not in t and not errs, f"syvälinkki {hs} -> sivu {exp} ilman virhettä", (cur, errs[:2]))
-    pg.goto(URL + "#d=2026-06-31"); pg.reload(); pg.wait_for_timeout(300)
+    pg.goto(URL + "#d=2026-06-31"); pg.reload(); pg.wait_for_timeout(300); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     ok(pg.evaluate("window.LAKITV.state.day") == today.isoformat(), "#d=2026-06-31 -> tämä päivä")
     # 5. otsikot
-    pg.goto(URL + "#p101"); pg.reload(); pg.wait_for_timeout(400)
+    pg.goto(URL + "#p101"); pg.reload(); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     t = pg.evaluate("""() => { const L = window.LAKITV; let t=''; const n = L.getPage(101).subs.length; for (let s=0;s<n;s++){ L.show(101,s,true); t += """ + rows + """ + '\\n'; } return t; }""")
     ok("TÄLLÄ VIIKOLLA" not in t.replace("AIEMMIN TÄLLÄ VIIKOLLA", ""), "101: voimaantulojen otsikko ei väitä 'tällä viikolla'", t[:200])
     # 6. tuleva juttu ei ole kärki eikä UUSI

@@ -1,3 +1,4 @@
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """Sivustotesti: site/ tarjoiltuna alipolusta (/laki-tv/) kuten GitHub Pagesissa.
 Tarkistaa metatiedot, syötteiden ja kalenterin osoitteet, PWA:n (manifest, service worker, offline), .ics-latauksen ja syvälinkit."""
 import http.server, json, os, socketserver, subprocess, sys, tempfile, threading, urllib.request, xml.etree.ElementTree as ET
@@ -57,7 +58,7 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport={"width": 1280, "height": 820}, accept_downloads=True)
     pg = ctx.new_page(); errs = []; con = []
     pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda m: con.append(m.text) if m.type == "error" else None)
-    pg.goto(BASE); pg.wait_for_timeout(1200)
+    pg.goto(BASE); pg.wait_for_timeout(1200); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     rows = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')")
     ok("LAKI-TV" in rows and "KANAVAT" in rows and pg.evaluate("window.LAKITV.state.current") == 100, "sivu 100 piirtyy alipolusta", rows[:200])
     ok(pg.title().startswith("LAKI-TV"), "document.title säilyy", pg.title())
@@ -83,12 +84,12 @@ with sync_playwright() as p:
         ok(False, ".ics-nappi puuttuu (ei tulevia tapahtumia?)")
     pg.keyboard.press("Escape")
     # syvälinkit alipolussa
-    pg.goto(BASE + "#p800"); pg.wait_for_timeout(400); ok(pg.evaluate("window.LAKITV.state.current") == 800, "#p800 toimii alipolussa")
+    pg.goto(BASE + "#p800"); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300); ok(pg.evaluate("window.LAKITV.state.current") == 800, "#p800 toimii alipolussa")
     jid = pg.evaluate("(() => { const n = [...window.LAKITV.NUMS()].find(n => (window.LAKITV.itemIndexGet(n)||{}).it); return n ? window.LAKITV.itemIndexGet(n).it.id : null; })()")
-    pg.goto(BASE + "#j=" + jid); pg.reload(); pg.wait_for_timeout(500)
+    pg.goto(BASE + "#j=" + jid); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     ok(pg.evaluate("((window.LAKITV.itemIndexGet(window.LAKITV.state.current)||{}).it||{}).id") == jid, "#j= syvälinkki avaa jutun alipolussa", jid)
     # offline: välimuisti vastaa
-    pg.goto(BASE); pg.wait_for_timeout(800); pg.evaluate("navigator.serviceWorker.ready")
+    pg.goto(BASE); pg.wait_for_timeout(800); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300); pg.evaluate("navigator.serviceWorker.ready")
     pg.evaluate("fetch('feed.xml').then(r => r.text())"); pg.wait_for_timeout(500)
     ctx.set_offline(True)
     pg.reload(); pg.wait_for_timeout(1200)
@@ -98,7 +99,7 @@ with sync_playwright() as p:
     ctx.set_offline(False)
     # mobiili
     m = b.new_page(viewport={"width": 390, "height": 844}, is_mobile=True, device_scale_factor=3)
-    m.goto(BASE); m.wait_for_timeout(1000)
+    m.goto(BASE); m.wait_for_timeout(1000); m.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); m.wait_for_timeout(300)
     ok(m.evaluate("document.documentElement.scrollWidth <= innerWidth + 1") and m.evaluate("document.querySelectorAll('#rows .row').length") >= 25, "mobiili: ei vaakavieritystä, sivu piirtyy")
     ok(not errs and not con, "ei virheitä lopussa", (errs + con)[:3])
     b.close()

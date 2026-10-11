@@ -1,9 +1,8 @@
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """Käy läpi kaikki sivut 100–899 ja kaikki alasivut: rivimäärä, rivileveys, linkit, pikanäppäimet."""
-import os as _os
-ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 import json, sys
 from playwright.sync_api import sync_playwright
-URL = "file://" + ROOT + "/test/fixture.html"
+URL = "file:///tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/test/fixture.html"
 JS = r"""
 (lang) => {
   const L = window.LAKITV, out = {chars:{}, errors:[], pages:0, subs:0, fillers:0, deadLinks:{}, longFt:[], badRows:[], overflow:[]};
@@ -54,11 +53,11 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.on("console", lambda m: errs.append(m.text) if m.type == "error" and "fonts.g" not in m.text else None)
     pg.add_init_script("window.__ovl = []")
-    pg.goto(URL); pg.wait_for_timeout(500)
+    pg.goto(URL); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     res = pg.evaluate(JS, sys.argv[1] if len(sys.argv) > 1 else "fi")
     res["jsErrors"] = errs
     from fontTools.ttLib import TTFont
-    cm = TTFont(ROOT + "/fonts/lakicaps-sub.woff2").getBestCmap()
+    cm = TTFont("/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/fonts/lakicaps-sub.woff2").getBestCmap()
     missing = {c: n for c, n in res.pop("chars").items() if ord(c) not in cm}
     res["missingGlyphs"] = missing
     print(json.dumps({k: (v if k not in ("badRows", "overlaps") else v[:25]) for k, v in res.items()}, ensure_ascii=False, indent=1))

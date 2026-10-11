@@ -9,6 +9,33 @@
     <div class="glass" aria-hidden="true"></div>
   </div>
 
+  <div class="ctrl" id="ctrl">
+    <div class="nav2">
+      <button type="button" class="k" id="bPrev" title="Edellinen (nuoli alas)" data-sv-title="Föregående (pil ned)" data-en-title="Previous (arrow down)" data-sv="◀ FÖREGÅENDE" data-en="◀ PREVIOUS">◀ EDELLINEN</button>
+      <button type="button" class="k" id="bNext" title="Seuraava (nuoli ylös)" data-sv-title="Nästa (pil upp)" data-en-title="Next (arrow up)" data-sv="NÄSTA ▶" data-en="NEXT ▶">SEURAAVA ▶</button>
+    </div>
+    <nav class="bar" aria-label="Valikko" data-sv-aria="Meny" data-en-aria="Menu">
+      <button type="button" class="k sm" id="bHome" title="Etusivu, sivu 100 (I)" data-sv-title="Förstasidan, sidan 100 (I)" data-en-title="Home page, page 100 (I)" data-sv="FÖRSTASIDA" data-en="HOME">ETUSIVU</button>
+      <button type="button" class="k sm" id="bList" title="Kanavaluettelo (L)" data-sv-title="Kanallista (L)" data-en-title="Channel list (L)" aria-haspopup="dialog" data-sv="KANALER" data-en="CHANNELS">KANAVAT</button>
+      <button type="button" class="k sm" id="bSearch" title="Hae juttuja (/ tai F)" data-sv-title="Sök nyheter (/ eller F)" data-en-title="Search items (/ or F)" aria-haspopup="dialog" data-sv="SÖK" data-en="SEARCH">HAKU</button>
+      <button type="button" class="k sm" id="bHelp" title="Ohje, sivu 199 (O)" data-sv-title="Hjälp, sidan 199 (O)" data-en-title="Help, page 199 (O)" data-sv="HJÄLP" data-en="HELP">OHJE</button>
+      <button type="button" class="k sm" id="bKbd" aria-controls="kbd" aria-expanded="false" title="Näytä tai piilota näppäimistö (K)" data-sv-title="Visa eller dölj tangentbordet (K)" data-en-title="Show or hide the keypad (K)" data-sv="TANGENTBORD" data-en="KEYPAD">NÄPPÄIMISTÖ</button>
+      <label class="pgbox"><span data-sv="Sida" data-en="Page">Sivu</span><input id="bPage" type="text" inputmode="numeric" maxlength="3" autocomplete="off" pattern="[0-9]*" placeholder="100" aria-label="Siirry sivulle (100–899)" data-sv-aria="Gå till sidan (100–899)" data-en-aria="Go to page (100–899)"></label>
+      <span class="sp"></span>
+      <div class="seg" role="group" aria-label="Kieli" data-sv-aria="Språk" data-en-aria="Language">
+        <button type="button" class="k xs on" id="bFi" lang="fi" aria-pressed="true" title="Suomeksi">FI</button>
+        <button type="button" class="k xs" id="bSv" lang="sv" aria-pressed="false" title="På svenska">SV</button>
+        <button type="button" class="k xs" id="bEn" lang="en" aria-pressed="false" title="In English">EN</button>
+      </div>
+    </nav>
+  </div>
+</main>
+
+<aside class="drawer" id="kbd" aria-label="Näppäimistö" data-sv-aria="Tangentbord" data-en-aria="Keypad" inert>
+  <div class="dr-head">
+    <h2 data-sv="Tangentbord" data-en="Keypad">Näppäimistö</h2>
+    <button type="button" class="pn-close" id="kbdClose" aria-label="Sulje näppäimistö" data-sv-aria="Stäng tangentbordet" data-en-aria="Close the keypad" data-sv="Stäng" data-en="Close">Sulje</button>
+  </div>
   <div class="remote" role="group" aria-label="Kaukosäädin" data-sv-aria="Fjärrkontroll" data-en-aria="Remote control">
     <div class="rm-led">
       <span class="led" id="led" aria-hidden="true"></span>
@@ -29,7 +56,7 @@
       <button type="button" class="k xs sub" id="kSub" title="Jakelu: kalenteri, syötteet ja viikkokatsaus" data-sv-title="Distribution: kalender, flöden och veckoöversikt" data-en-title="Distribution: calendar, feeds and weekly review" aria-haspopup="dialog" data-sv="FLÖDEN" data-en="FEEDS">JAKELU</button>
     </div>
     <div class="rm-fn">
-      <button type="button" class="k sm" id="kIndex" title="Etusivu (I)" data-sv-title="Förstasidan (I)" data-en-title="Home page (I)">INDEX</button>
+      <button type="button" class="k sm" id="kIndex" title="Etusivu (I)" data-sv-title="Förstasidan (I)" data-en-title="Home page (I)" data-sv="FÖRSTASIDA" data-en="HOME">ETUSIVU</button>
       <button type="button" class="k sm" id="kList" title="Kanavaluettelo (L)" data-sv-title="Kanallista (L)" data-en-title="Channel list (L)" aria-haspopup="dialog" data-sv="KANALER" data-en="CHANNELS">KANAVAT</button>
       <button type="button" class="k sm" id="kTopics" title="Valitse aiheet (A)" data-sv-title="Välj ämnen (A)" data-en-title="Choose topics (A)" aria-haspopup="dialog" data-sv="ÄMNEN" data-en="TOPICS">AIHEET</button>
       <button type="button" class="k sm" id="kBack" title="Takaisin edelliselle sivulle (Backspace)" data-sv-title="Tillbaka till föregående sida (Backspace)" data-en-title="Back to the previous page (Backspace)" data-sv="TILLBAKA" data-en="BACK">TAKAISIN</button>
@@ -60,9 +87,9 @@
       <button type="button" class="k" id="kPrev" aria-label="Edellinen sivu" data-sv-aria="Föregående sida" data-en-aria="Previous page" title="Edellinen sivu (↓)" data-sv-title="Föregående sida (↓)" data-en-title="Previous page (↓)">◀ 199</button>
       <button type="button" class="k" id="kNext" aria-label="Seuraava sivu" data-sv-aria="Nästa sida" data-en-aria="Next page" title="Seuraava sivu (↑)" data-sv-title="Nästa sida (↑)" data-en-title="Next page (↑)">101 ▶</button>
     </div>
-    <div class="rm-brand"><span class="rm-mark" aria-hidden="true"><svg viewBox="0 0 64 64" width="26" height="26"><rect width="64" height="64" rx="12" fill="#0a0acc"/><g fill="#ffe600"><rect x="13" y="9" width="15" height="15"/><rect x="13" y="25" width="15" height="15"/><rect x="13" y="41" width="15" height="15"/><rect x="29" y="41" width="11" height="15"/><rect x="41" y="41" width="11" height="15"/></g></svg></span><span class="rm-brand-t"><b>LAKI-TV</b><small data-sv="Juridisk text-tv · öppen källkod" data-en="Legal teletext · open source">Juridinen teksti-TV · avoin lähdekoodi</small></span></div>
+    <div class="rm-brand"><b>LAKI-TV</b><small data-sv="Juridisk text-tv · öppen källkod" data-en="Legal teletext · open source">Juridinen teksti-TV · avoin lähdekoodi</small></div>
   </div>
-</main>
+</aside>
 
 <dialog class="panel" id="panel" aria-label="Kanavaluettelo, aiheet, haku ja jakelu" data-sv-aria="Kanallista, ämnen, sök och distribution" data-en-aria="Channel list, topics, search and distribution">
   <div class="pn-head">

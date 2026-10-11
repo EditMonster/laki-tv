@@ -1,9 +1,8 @@
-import os as _os
-ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 from playwright.sync_api import sync_playwright
 import datetime as _dt, zoneinfo as _zi
 _FIXED = _dt.datetime.combine(_dt.datetime.now(_zi.ZoneInfo("Europe/Helsinki")).date(), _dt.time(21, 0), tzinfo=_zi.ZoneInfo("Europe/Helsinki"))   # testikello: tänään klo 21 Helsinki
-URL = "file://" + ROOT + "/test/fixture.html"
+URL = "file:///tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/test/fixture.html"
 ok = 0; fail = 0
 def check(name, cond, info=""):
     global ok, fail
@@ -15,7 +14,7 @@ with sync_playwright() as p:
     pg = b.new_page(viewport={"width": 1400, "height": 900})
     pg.clock.set_fixed_time(_FIXED)
     errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
-    pg.goto(URL); pg.wait_for_timeout(600)
+    pg.goto(URL); pg.wait_for_timeout(600); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     pg.keyboard.press("/"); pg.wait_for_timeout(250)
     check("/ avaa haun", pg.evaluate("document.getElementById('panel').open && !document.getElementById('paneSearch').hidden"))
     check("hakukenttä fokuksessa", pg.evaluate("document.activeElement.id") == "q")
@@ -37,11 +36,11 @@ with sync_playwright() as p:
     check("Enter avaa ensimmäisen osuman", not pg.evaluate("document.getElementById('panel').open") and 500 < cur(pg) < 510, cur(pg))
     h = pg.evaluate("location.hash")
     check("juttusivun hash on pysyvä #j=", h.startswith("#j="), h)
-    pg.goto(URL + "#j=" + "KKO%3A2026%3A73"); pg.wait_for_timeout(600)
+    pg.goto(URL + "#j=" + "KKO%3A2026%3A73"); pg.wait_for_timeout(600); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     check("#j=KKO:2026:73 avaa oikean sivun", cur(pg) == 201, cur(pg))
-    pg.goto(URL + "#p853"); pg.wait_for_timeout(500)
+    pg.goto(URL + "#p853"); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     check("#p853 toimii yhä", cur(pg) == 853, cur(pg))
-    pg.goto(URL + "#j=olematon"); pg.reload(); pg.wait_for_timeout(600)
+    pg.goto(URL + "#j=olematon"); pg.reload(); pg.wait_for_timeout(600); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     check("tuntematon #j -> etusivu", cur(pg) == 100, cur(pg))
     pg.keyboard.press("l"); pg.wait_for_timeout(200)
     pg.focus("#tabList"); pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(200)
@@ -52,7 +51,7 @@ with sync_playwright() as p:
     check("ei JS-virheitä", not errs, errs[:2])
     m = b.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     m.clock.set_fixed_time(_FIXED)
-    m.goto(URL); m.wait_for_timeout(600)
+    m.goto(URL); m.wait_for_timeout(600); m.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); m.wait_for_timeout(300)
     m.tap("#kSearch"); m.wait_for_timeout(300); m.fill("#q", "eit"); m.wait_for_timeout(300)
     check("mobiili: haku toimii", m.evaluate("document.querySelectorAll('#qResults button').length") > 0)
     m.screenshot(path="test/search_mob.png")

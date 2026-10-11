@@ -1,9 +1,9 @@
+# Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """Tietoturva- ja vikatilannetesti: vihamielinen data, rikkinäinen selainmuisti, puuttuvat kyvyt.
 Rakentaa kopion sivusta, jonka dataan on ujutettu XSS-yritteitä, ja tarkistaa ettei mikään suoritu."""
 import json, re, sys, os
 from playwright.sync_api import sync_playwright
-import os as _os
-BASE = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+BASE = "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv"
 SRC = f"{BASE}/laki-tv.html"
 OUT = f"{BASE}/test/sec_page.html"
 BLOCK = re.compile(r'(<script type="application/json" id="laki-tv-data">)(.*?)(</script>)', re.S)
@@ -57,7 +57,7 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errors.append(str(e)))
     pg.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     pg.add_init_script("(() => { const S = " + json.dumps(BAD_STORE) + "; for (const k in S) localStorage.setItem(k, S[k]); })()")
-    pg.goto("file://" + OUT); pg.wait_for_timeout(500)
+    pg.goto("file://" + OUT); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     ok(pg.evaluate("window.__xss") is None, "XSS ei suoritu latauksessa")
     ok(not errors, "ei JS-virheitä vihamielisellä muistilla", errors[:3])
     ok(pg.evaluate("document.documentElement.lang") in ("fi", "sv", "en"), "kieli palautuu oletukseen")

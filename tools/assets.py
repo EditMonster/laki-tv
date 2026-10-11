@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Luo sivuston kuvakkeet ja jakokuvan: icon.svg, icon-192.png, icon-512.png, og.png.
+"""Luo sivuston kuvakkeet ja jakokuvan: icon.svg, icon-32.png (Safari ja vanhat selaimet), icon-180.png (iOS), icon-192.png, icon-512.png, og.png.
 
 Kuvake on keltainen mosaiikki-L teksti-TV:n sinisellä. Jakokuva (1200×630) on sivun 100 oikea näkymä annetusta
 HTML-tiedostosta, kello pysäytettynä datan päivityshetkeen, jotta kuva vastaa sisältöä. Tarvitsee Playwrightin ja Chromiumin.
@@ -48,7 +48,7 @@ def main():
         b = p.chromium.launch()
         if not a.og_only:
             open(os.path.join(a.out, "icon.svg"), "w", encoding="utf-8").write(icon_svg(12))
-            for size in (192, 512):
+            for size in (32, 180, 192, 512):
                 pg = b.new_page(viewport={"width": size, "height": size})
                 pg.set_content('<!doctype html><html><body style="margin:0;background:transparent">' + icon_svg(0).replace('viewBox="0 0 64 64"', f'viewBox="0 0 64 64" width="{size}" height="{size}"') + "</body></html>")
                 pg.locator("svg").screenshot(path=os.path.join(a.out, f"icon-{size}.png"), omit_background=True)
@@ -76,7 +76,7 @@ def main():
                 os.remove(tmp)
             except OSError:
                 pass
-    for n in (["og.png"] if a.og_only else ["icon.svg", "icon-192.png", "icon-512.png", "og.png"]):
+    for n in (["og.png"] if a.og_only else ["icon.svg", "icon-32.png", "icon-180.png", "icon-192.png", "icon-512.png", "og.png"]):
         print(f"{n}: {os.path.getsize(os.path.join(a.out, n)) // 1024} kt")
 
 

@@ -14,7 +14,7 @@ import argparse, html, os, re, shutil, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FEEDS = ["feed.xml", "feed-sv.xml", "feed-en.xml", "feed.json", "lakitv.md", "viikkokatsaus.html", "viikkokatsaus.pdf"]
 CAL = {"kalenteri.txt": "kalenteri.ics", "kalenteri-sv.txt": "kalenteri-sv.ics", "kalenteri-en.txt": "kalenteri-en.ics"}
-ASSETS = ["icon.svg", "icon-192.png", "icon-512.png", "og.png"]
+ASSETS = ["icon.svg", "icon-32.png", "icon-180.png", "icon-192.png", "icon-512.png", "og.png"]
 
 DESC = {"fi": "Juridinen teksti-TV: KKO:n ja KHO:n ennakkopäätökset, EU-tuomioistuimen ja EIT:n ratkaisut, hallituksen esitykset, "
               "lausuntokierrokset ja voimaan tulevat lait kolmella kielellä. Päivittyy kahdesti päivässä."}
@@ -66,7 +66,8 @@ def head(base, domain):
          f'<meta property="og:description" content="{html.escape(DESC["fi"])}">', f'<meta property="og:image" content="{og_img}">',
          '<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">', '<meta property="og:locale" content="fi_FI">',
          '<meta name="twitter:card" content="summary_large_image">',
-         '<link rel="icon" href="icon.svg" type="image/svg+xml">', '<link rel="apple-touch-icon" href="icon-192.png">',
+         '<link rel="icon" href="icon.svg" type="image/svg+xml">', '<link rel="icon" href="icon-32.png" type="image/png" sizes="32x32">',
+         '<link rel="apple-touch-icon" href="icon-180.png" sizes="180x180">',
          '<link rel="manifest" href="manifest.webmanifest">',
          '<link rel="alternate" type="application/rss+xml" title="LAKI-TV (fi)" href="feed.xml">',
          '<link rel="alternate" type="application/rss+xml" title="LAKI-TV (sv)" href="feed-sv.xml">',

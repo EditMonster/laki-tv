@@ -38,7 +38,7 @@ with sync_playwright() as p:
     t = rows(pg)
     check("EN: etusivu englanniksi", "TOP NEWS" in t and "CHANNEL LIST" in t and "LEGAL" in t, t[:300])
     check("EN: html lang + nappi päällä", pg.evaluate("document.documentElement.lang") == "en" and pg.evaluate("document.getElementById('kEn').classList.contains('on')"))
-    check("EN: kaukosäätimen tekstit", pg.inner_text("#kSearch").strip() == "SEARCH" and pg.inner_text("#kSub").strip() == "FEEDS" and pg.inner_text("#tabKal").strip() == "Feeds" and pg.inner_text("#kList").strip() == "LIST")
+    check("EN: kaukosäätimen tekstit", pg.inner_text("#kSearch").strip() == "SEARCH" and pg.inner_text("#kSub").strip() == "FEEDS" and pg.inner_text("#tabKal").strip() == "Feeds" and pg.inner_text("#kList").strip() == "CHANNELS")
     pg.reload(); pg.wait_for_timeout(500)
     check("EN: valinta muistetaan", pg.evaluate("document.documentElement.lang") == "en" and "TOP NEWS" in rows(pg))
     it = d["kanavat"]["kko"][0]

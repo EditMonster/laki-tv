@@ -1627,8 +1627,7 @@ function buildHelp() {
     K("BACKSPACE", S("takaisin edelliselle sivulle", "tillbaka till föregående sida")),
     K("L / A", S("kanavaluettelo / aihesuodatin", "kanallista / ämnesfilter")),
     K(S("/ tai F", "/ eller F"), S("haku: tunnus, sana tai aihe", "sök: beteckning, ord, ämne")),
-    K("S", S("suurenna ylä- tai alaosa", "förstora övre eller nedre del")),
-    K("?", S("REVEAL: paljasta vastaukset", "REVEAL: visa svaren")),
+    K("?", S("näytä visan vastaukset (150)", "visa quizsvaren (150)", "show the quiz answers (150)")),
     K("C", S("isot kirjaimet päälle / pois", "versaler av / på")),
     K("I / O", S("etusivu 100 / ohje 199", "start 100 / hjälp 199")),
     {pageBreak:true},
@@ -2005,8 +2004,9 @@ function build180() {
 
 /* Päivän visa (REVEAL) */
 function buildQuiz() {
-  const top = bandTop(S("PÄIVÄN OIKEUSVISA", "DAGENS JURIDIKQUIZ"), S("REVEAL tai ? näyttää vastaukset", "REVEAL eller ? visar svaren"), "m", "y", "w");
+  const top = bandTop(S("PÄIVÄN OIKEUSVISA", "DAGENS JURIDIKQUIZ"), S("Vastaukset keltaisesta rivistä", "Svaren från den gula raden", "Answers from the yellow row"), "m", "y", "w");
   const body = [];
+  { const r = blank(); put(r, 1, state.reveal ? S("▼ PIILOTA VASTAUKSET", "▼ DÖLJ SVAREN", "▼ HIDE THE ANSWERS") : S("▶ NÄYTÄ VASTAUKSET", "▶ VISA SVAREN", "▶ SHOW THE ANSWERS"), "y", null, {act:"reveal"}); body.push(r, gap()); }
   (DATA.visa || []).forEach((q, i) => {
     if (i) body.push(gap());
     const qs = wrap(tx(q, "kysymys"), 35);
@@ -2022,9 +2022,9 @@ function buildQuiz() {
   });
   if (!body.length) body.push(line(S("Visa päivittyy pian.", "Quizen uppdateras snart.")));
   const bot = blank(); put(bot, 1, S("Kysymykset LAKI-TV:n jutuista", "Frågor om LAKI-TV:s nyheter"), "g");
-  pages.set(150, compose(top, body, [bot], [
+  return compose(top, body, [bot], [
     {t:S("Etusivu", "Start"), p:100}, {t:S("Uudet 101", "Nya 101"), p:101}, {t:S("Lista 190", "Lista 190"), p:190}, {t:S("Ohje 199", "Hjälp 199"), p:199}
-  ], S("päivän visa", "dagens quiz")));
+  ], S("päivän visa", "dagens quiz"));
 }
 
 /* 888: viimeksi avattu juttu selkeällä kielellä */
@@ -2363,7 +2363,7 @@ function fillerPage(num) {
 }
 
 const DYN = {100: buildFront, 101: build101, 102: buildWeek, 103: buildCal, 104: buildDay, 105: buildArch, 107: buildDigest, 108: buildFollow, 109: buildJakelu, 198: buildStatus,
-  110: build110, 180: build180, 800: build800, 801: build801, 802: build802, 850: build850, 888: build888};
+  110: build110, 150: buildQuiz, 180: build180, 800: build800, 801: build801, 802: build802, 850: build850, 888: build888};
 /* Sivut rakennetaan vasta, kun niitä tarvitaan (lazy), ja tulos välimuistitetaan. */
 function lazy(num, fn) { pages.set(num, {lazy:fn}); }
 function getPage(num) {
@@ -2398,7 +2398,7 @@ function buildAll() {
     });
     lazy(ch.page, () => buildChannel(ch, ci));
   });
-  lazy(190, buildIndex); lazy(199, buildHelp); lazy(720, buildBoard); lazy(150, buildQuiz);
+  lazy(190, buildIndex); lazy(199, buildHelp); lazy(720, buildBoard);
   TOPICS.forEach((t, ti) => lazy(t.page, () => buildTopic(t, ti)));
   Object.keys(DYN).forEach(k => pages.set(+k, {dyn:true, subs:[[]], ft:[]}));
   NUMS = [...pages.keys()].sort((a, b) => a - b);
@@ -2473,12 +2473,25 @@ function paintPage() {
   paintRow(24, fastextRow(page.ft));
   for (let i = 0; i < 4; i++) { const f = (page.ft || [])[i]; document.getElementById("ft" + i).textContent = f ? f.t : ""; }
   document.getElementById("rmNow").textContent = `${S("Sivu", "Sida")} ${state.current}` + (page.subs.length > 1 ? `  ${state.sub + 1}/${page.subs.length}` : "");
+  const [pv, nx] = neighbours(state.current);
+  document.getElementById("kPrev").textContent = `◀ ${pv}`; document.getElementById("kNext").textContent = `${nx} ▶`;
+  const multi = page.subs.length > 1;
+  for (const id of ["kSubPrev", "kSubNext"]) { const b = document.getElementById(id); b.disabled = !multi; b.classList.toggle("dim", !multi); }
   screenEl.setAttribute("aria-label", `${S("Teksti-TV sivu", "Text-tv sida")} ${state.current}, ${page.label || ""}`);
 }
 function setReveal(on) {
   state.reveal = on;
   rowsEl.classList.toggle("reveal", on);
-  const b = document.getElementById("kReveal"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on));
+}
+/* Edellinen ja seuraava olemassa oleva sivu (kaukosäätimen alanapit näyttävät numerot) */
+function neighbours(num) {
+  if (!NUMS.length) return [num, num];
+  const i = NUMS.indexOf(num);
+  if (i >= 0) return [NUMS[(i - 1 + NUMS.length) % NUMS.length], NUMS[(i + 1) % NUMS.length]];
+  let prev = NUMS[NUMS.length - 1], next = NUMS[0];
+  NUMS.forEach(n => { if (n < num) prev = n; });
+  for (const n of NUMS) if (n > num) { next = n; break; }
+  return [prev, next];
 }
 
 function show(num, sub = 0) {
@@ -2550,13 +2563,6 @@ function subStep(dir) {
   return true;
 }
 function fast(i) { blink(); const f = page.ft && page.ft[i]; if (f) go(f.p, false, {day:f.day, ai:f.ai}); }
-function cycleSize() {
-  blink(); state.size = (state.size + 1) % 3;
-  rowsEl.classList.toggle("size1", state.size === 1);
-  rowsEl.classList.toggle("size2", state.size === 2);
-  const b = document.getElementById("kSize"); b.classList.toggle("on", state.size !== 0);
-  b.textContent = ["SIZE", "SIZE ▲", "SIZE ▼"][state.size];
-}
 function setCaps(on, save = true) {
   state.caps = on;
   rowsEl.classList.toggle("caps", on);
@@ -2799,6 +2805,7 @@ rowsEl.addEventListener("click", e => {
   if (!a) return;
   e.preventDefault(); blink();
   if (a.dataset.act === "seuraa") { toggleFollow(a.dataset.arg); return; }
+  if (a.dataset.act === "reveal") { blink(); const sub = state.sub; setReveal(!state.reveal); page = getPage(state.current) || fillerPage(state.current); state.sub = Math.min(sub, page.subs.length - 1); paintPage(); return; }
   if (a.dataset.act === "seuraa-ok") { ackFollows(); return; }
   if (a.dataset.act === "kal") { openKal(a.dataset.arg); return; }
   if (a.dataset.act === "jakelu") { kalCurrent = null; openPanel("kal"); return; }
@@ -2809,7 +2816,6 @@ document.querySelectorAll("[data-d]").forEach(b => b.addEventListener("click", (
 document.querySelectorAll("[data-ft]").forEach(b => b.addEventListener("click", () => fast(+b.dataset.ft)));
 document.getElementById("kIndex").addEventListener("click", () => { blink(); go(100); });
 document.getElementById("kHelp").addEventListener("click", () => { blink(); go(199); });
-document.getElementById("k888").addEventListener("click", () => { blink(); go(888); });
 document.getElementById("kList").addEventListener("click", () => { blink(); openPanel("list"); });
 document.getElementById("kTopics").addEventListener("click", () => { blink(); openPanel("topics"); });
 document.getElementById("kSearch").addEventListener("click", () => { blink(); openPanel("search"); });
@@ -2820,10 +2826,8 @@ document.getElementById("kSv").addEventListener("click", () => { blink(); setLan
 document.getElementById("kEn").addEventListener("click", () => { blink(); setLang("en"); });
 document.getElementById("kBack").addEventListener("click", back);
 document.getElementById("kCase").addEventListener("click", () => { blink(); setCaps(!state.caps); });
-document.getElementById("kReveal").addEventListener("click", () => { blink(); setReveal(!state.reveal); });
-document.getElementById("kSize").addEventListener("click", cycleSize);
-document.getElementById("kPp").addEventListener("click", () => step(1));
-document.getElementById("kPm").addEventListener("click", () => step(-1));
+document.getElementById("kNext").addEventListener("click", () => step(1));
+document.getElementById("kPrev").addEventListener("click", () => step(-1));
 document.getElementById("kSubNext").addEventListener("click", () => subStep(1));
 document.getElementById("kSubPrev").addEventListener("click", () => subStep(-1));
 document.addEventListener("keydown", e => {
@@ -2843,7 +2847,6 @@ document.addEventListener("keydown", e => {
   else if (k === "g" || k === "G" || k === "F2") fast(1);
   else if (k === "y" || k === "Y" || k === "F3") fast(2);
   else if (k === "b" || k === "B" || k === "F4") fast(3);
-  else if (k === "s" || k === "S") cycleSize();
   else if (k === "c" || k === "C") setCaps(!state.caps);
   else if (k === "l" || k === "L") openPanel("list");
   else if (k === "a" || k === "A") openPanel("topics");

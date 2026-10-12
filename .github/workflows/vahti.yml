@@ -1,4 +1,4 @@
-# LAKI-TV vahti: tarkistaa joka aamu, että päivitysajo on työntänyt tuoreen sisällön data-varastoon.
+# LAKI-TV vahti: tarkistaa joka aamu, että päivitysajo on työntänyt tuoreen sisällön datavarastoon (gist tai varasto).
 # Jos data on yli 20 tuntia vanhaa, työnkulku epäonnistuu ja GitHub lähettää siitä sähköpostin varaston omistajalle.
 name: vahti
 on:
@@ -14,10 +14,19 @@ jobs:
       - uses: actions/checkout@v7
       - name: Onko sisältö tuoretta?
         env:
-          DATA_REPO: ${{ vars.LAKITV_DATA_REPO || 'EditMonster/laki-tv-data' }}
+          DATA_REPO: ${{ vars.LAKITV_DATA_REPO || 'gist:8cdf55f747883ff5fda0e6957e6835bf' }}
+          DATA_URL: ${{ vars.LAKITV_DATA_URL }}
+          OWNER: ${{ github.repository_owner }}
         run: |
-          curl -fsSL --max-time 30 "https://raw.githubusercontent.com/$DATA_REPO/main/data.json" -o data.uusi.json && mv data.uusi.json data.json \
-            || echo "data-varastoa ei saatu luettua – tarkistetaan tämän varaston data.json"
+          if [ -z "$DATA_URL" ]; then
+            case "$DATA_REPO" in
+              gist:*) DATA_URL="https://gist.githubusercontent.com/$OWNER/${DATA_REPO#gist:}/raw/data.json" ;;
+              *)      DATA_URL="https://raw.githubusercontent.com/$DATA_REPO/main/data.json" ;;
+            esac
+          fi
+          curl -fsSL --max-time 30 -H "Cache-Control: no-cache" "$DATA_URL" -o data.uusi.json \
+            && python3 -c "import json, sys; d = json.load(open('data.uusi.json', encoding='utf-8')); sys.exit(0 if d.get('paivitetty') else 1)" \
+            && mv data.uusi.json data.json || echo "datavarastoa ei saatu luettua – tarkistetaan tämän varaston data.json"
           python3 - <<'PY'
           import json, datetime, sys
           d = json.load(open("data.json", encoding="utf-8"))

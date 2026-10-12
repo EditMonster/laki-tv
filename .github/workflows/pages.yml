@@ -1,8 +1,8 @@
 # LAKI-TV: rakentaa ja julkaisee sivuston GitHub Pagesiin.
-# Turvamalli: päivitysajo ei koske tähän varastoon lainkaan. Se työntää vain data.json-tiedoston erilliseen, julkiseen
-# data-varastoon (muuttuja LAKITV_DATA_REPO, oletus EditMonster/laki-tv-data) avaimella, joka on rajattu vain sinne.
-# Tämä työnkulku hakee datan sieltä, tarkistaa sen (validate) ja rakentaa sivuston tämän varaston koodista.
-# Ajetaan tunneittain; jos data-varaston paivitetty on jo sivustolla, julkaisu ohitetaan.
+# Turvamalli: päivitysajo ei koske tähän varastoon lainkaan. Se työntää vain data.json-tiedoston erilliseen datavarastoon –
+# gistiin (LAKITV_DATA_REPO = gist:TUNNUS) tai varastoon (omistaja/nimi) – avaimella, joka on rajattu vain sinne.
+# Tämä työnkulku hakee datan sieltä (tai muuttujan LAKITV_DATA_URL osoitteesta), tarkistaa sen (validate) ja rakentaa
+# sivuston tämän varaston koodista. Ajetaan tunneittain; jos datan paivitetty on jo sivustolla, julkaisu ohitetaan.
 # Pages-asetuksissa lähteeksi valitaan "GitHub Actions".
 name: pages
 on:
@@ -30,18 +30,26 @@ jobs:
         with: {python-version: "3.12"}
       - id: pages
         uses: actions/configure-pages@v6
-      - name: Hae uusin data data-varastosta ja tarkista, onko se jo sivustolla
+      - name: Hae uusin data datavarastosta ja tarkista, onko se jo sivustolla
         id: data
         env:
-          DATA_REPO: ${{ vars.LAKITV_DATA_REPO || 'EditMonster/laki-tv-data' }}
+          DATA_REPO: ${{ vars.LAKITV_DATA_REPO || 'gist:8cdf55f747883ff5fda0e6957e6835bf' }}
+          DATA_URL: ${{ vars.LAKITV_DATA_URL }}
+          OWNER: ${{ github.repository_owner }}
           SITE: ${{ steps.pages.outputs.base_url }}/
           EVENT: ${{ github.event_name }}
         run: |
-          if curl -fsSL --max-time 30 "https://raw.githubusercontent.com/$DATA_REPO/main/data.json" -o data.uusi.json \
-             && python3 -c "import json; json.load(open('data.uusi.json', encoding='utf-8'))"; then
+          if [ -z "$DATA_URL" ]; then
+            case "$DATA_REPO" in
+              gist:*) DATA_URL="https://gist.githubusercontent.com/$OWNER/${DATA_REPO#gist:}/raw/data.json" ;;
+              *)      DATA_URL="https://raw.githubusercontent.com/$DATA_REPO/main/data.json" ;;
+            esac
+          fi
+          if curl -fsSL --max-time 30 -H "Cache-Control: no-cache" "$DATA_URL" -o data.uusi.json \
+             && python3 -c "import json, sys; d = json.load(open('data.uusi.json', encoding='utf-8')); sys.exit(0 if d.get('paivitetty') and d.get('kanavat') else 1)"; then
             mv data.uusi.json data.json; echo "data: $DATA_REPO"
           else
-            echo "data: tämän varaston data.json (data-varastoa ei saatu luettua)"
+            echo "data: tämän varaston data.json (datavarastoa ei saatu luettua tai se on vielä tyhjä)"
           fi
           NEW=$(python3 -c "import json; print(json.load(open('data.json', encoding='utf-8')).get('paivitetty', ''))")
           LIVE=$(curl -fsSL --max-time 30 "$SITE" | grep -o '"paivitetty":"[^"]*"' | head -1 | cut -d'"' -f4 || true)

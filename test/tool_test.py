@@ -218,6 +218,19 @@ ok(r.returncode != 0 and "GITHUB_TOKEN" in (r.stderr + r.stdout), "ghpush: avain
 r = sh(sys.executable, GH, "omistaja/ei-ole", "--remote", "https://127.0.0.1:9/ei.git", "data.json=data.json", env={"GITHUB_TOKEN": "github_pat_SALAINEN_EI_SAA_NAKYA"})
 ok(r.returncode != 0 and "SALAINEN" not in (r.stderr + r.stdout), "ghpush: avain ei vuoda virheilmoitukseen", (r.stderr + r.stdout)[-160:])
 ok(not any(n.startswith("ghpush-cred-") for n in os.listdir(tempfile.gettempdir())), "ghpush: credential helper siivotaan")
+# gist-kohde: osoite gist.github.com, muotovaatimus, ja haaran automaattinen tunnistus (master-haarainen varasto)
+sys.path.insert(0, B + "tools"); import ghpush as GP
+ok(GP.repo_url("gist:0123456789abcdef0123") == "https://gist.github.com/0123456789abcdef0123.git" and GP.repo_url("a/b") == "https://github.com/a/b.git", "ghpush: gist-osoite")
+r = sh(sys.executable, GH, "gist:xyz", "data.json=data.json")
+ok(r.returncode != 0 and "gist:tunnus" in (r.stderr + r.stdout), "ghpush: gist-tunnuksen muoto tarkistetaan")
+sh("git", "init", "-q", "--bare", "remote2.git"); sh("git", "clone", "-q", "remote2.git", "seed2"); seed2 = td + "/seed2"
+subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "checkout", "-q", "-b", "master"], cwd=seed2, capture_output=True)
+open(seed2 + "/data.json", "w").write("{}"); subprocess.run(["git", "add", "."], cwd=seed2)
+subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init"], cwd=seed2); subprocess.run(["git", "push", "-q", "origin", "master"], cwd=seed2, capture_output=True)
+subprocess.run(["git", "symbolic-ref", "HEAD", "refs/heads/master"], cwd=td + "/remote2.git")
+r = sh(sys.executable, GH, "gist:0123456789abcdef0123", "--remote", td + "/remote2.git", "data.json=data.json", env={"GITHUB_TOKEN": "ghp_TESTI00000000000000000000"})
+head2 = subprocess.run(["git", "show", "master:data.json"], cwd=td + "/remote2.git", capture_output=True, text=True).stdout
+ok(r.returncode == 0 and "06:49:36" in head2, "ghpush: haara tunnistetaan automaattisesti (master)", r.stdout[-120:] + r.stderr[-200:])
 shutil.rmtree(td, ignore_errors=True)
 print(f"{len(fails)} virhettä" if fails else "KAIKKI OK")
 sys.exit(1 if fails else 0)

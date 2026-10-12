@@ -14,14 +14,18 @@ Tavat:
        rajaa api.github.com-pyynnöt; tarkoitettu tavalliseen ympäristöön.
   auto git, jos git-ohjelma löytyy; muuten api.
 
+Kohde voi olla tavallinen varasto (omistaja/varasto) tai gist (gist:TUNNUS, osoite https://gist.github.com/TUNNUS.git).
+Claude-istunnon git-välityspalvelin estää työnnöt varastoihin, joita istuntoon ei ole liitetty, mutta gist.github.com
+kulkee sen ohi, joten päivitysajo käyttää gistiä. Haara tunnistetaan automaattisesti (--branch auto).
+
 Turvamalli (päivitysajo):
-  * Avain on fine-grained personal access token, joka on rajattu VAIN erilliseen data-varastoon (esim. omistaja/laki-tv-data)
-    ja Contents: read and write -oikeuteen. Sivuston koodivarastoon avain ei ulotu; sivusto hakee datan data-varastosta
-    GitHub Actionsissa ja tarkistaa sen (validate) ennen julkaisua.
+  * Gistiin: classic personal access token, jolla on VAIN gist-oikeus (ei repo-, ei tilioikeuksia). Varastoon: fine-grained
+    token, joka on rajattu vain siihen varastoon ja Contents: read and write -oikeuteen. Sivuston koodivarastoon avain ei
+    ulotu; sivusto hakee datan gististä tai datavarastosta GitHub Actionsissa ja tarkistaa sen (validate) ennen julkaisua.
   * Oletuksena vain data.json kelpaa kohteeksi (--allow laajentaa), tiedosto enintään 5 Mt, ja tunnukselta näyttävä sisältö
     (webhook-osoite, token, yksityinen avain) pysäyttää työnnön. Mitään ei koskaan poisteta.
 
-  GITHUB_TOKEN=… python3 tools/ghpush.py omistaja/laki-tv-data -m "LAKI-TV 12.10. klo 06.49" data.json=data.json"""
+  GITHUB_TOKEN=… python3 tools/ghpush.py gist:0123abcd… -m "LAKI-TV 12.10. klo 06.49" data.json=data.json"""
 import argparse, base64, hashlib, json, os, re, shutil, subprocess, sys, tempfile, urllib.request, urllib.error
 
 API = "https://api.github.com"
@@ -139,13 +143,34 @@ def credential_helper(token):
     return ["-c", f"credential.helper={helper}"], {**os.environ, "GHPUSH_TOKEN": token}, d
 
 
+def repo_url(repo):
+    """omistaja/varasto -> github.com, gist:TUNNUS -> gist.github.com"""
+    if repo.startswith("gist:"):
+        return f"https://gist.github.com/{repo[5:]}.git"
+    return f"https://github.com/{repo}.git"
+
+
+def default_branch(url, cfg=(), env=None):
+    """Etävaraston oletushaara (HEAD); jos HEAD ei osoita mihinkään, main tai ensimmäinen haara."""
+    out = run_git(["ls-remote", "--symref", url, "HEAD"], cfg=cfg, env=env).stdout
+    m = re.search(r"^ref: refs/heads/(\S+)\tHEAD", out, re.M)
+    if m:
+        return m.group(1)
+    heads = re.findall(r"\trefs/heads/(\S+)$", run_git(["ls-remote", "--heads", url], cfg=cfg, env=env).stdout, re.M)
+    if not heads:
+        raise SystemExit("varastossa ei ole yhtään haaraa")
+    return "main" if "main" in heads else heads[0]
+
+
 def push_git(repo, branch, message, files, remote, dry, token=None):
     if not shutil.which("git"):
         raise SystemExit("git-ohjelmaa ei ole")
-    url = remote or f"https://github.com/{repo}.git"
+    url = remote or repo_url(repo)
     tmp = tempfile.mkdtemp(prefix="ghpush-")
     cfg, env, cred_dir = credential_helper(token) if token else ([], None, None)
     try:
+        if branch == "auto":   # oletushaara (gisteissä main tai master)
+            branch = default_branch(url, cfg, env)
         run_git(["clone", "--quiet", "--depth", "1", "--branch", branch, url, tmp], cfg=cfg, env=env)
         changed = []
         for p, d in files.items():
@@ -180,17 +205,19 @@ def push_git(repo, branch, message, files, remote, dry, token=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("repo", help="omistaja/varasto")
+    ap.add_argument("repo", help="omistaja/varasto tai gist:TUNNUS")
     ap.add_argument("pairs", nargs="+", help="LÄHDE=KOHDE")
-    ap.add_argument("--branch", default="main")
+    ap.add_argument("--branch", default="auto", help="haara (oletus auto = varaston oletushaara)")
     ap.add_argument("-m", "--message", default="LAKI-TV: sisällön päivitys")
     ap.add_argument("--via", choices=["auto", "api", "git"], default="auto")
     ap.add_argument("--remote", help="git-osoite (oletus https://github.com/OMISTAJA/VARASTO.git)")
     ap.add_argument("--allow", action="append", help="sallittu kohdepolku tai kansio/ (oletus: vain data.json)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
-    if not re.fullmatch(r"[\w.-]+/[\w.-]+", a.repo):
-        raise SystemExit("varasto muodossa omistaja/nimi")
+    if not re.fullmatch(r"[\w.-]+/[\w.-]+|gist:[0-9a-fA-F]{8,}", a.repo):
+        raise SystemExit("varasto muodossa omistaja/nimi tai gist:tunnus")
+    if a.via == "api" and a.repo.startswith("gist:"):
+        raise SystemExit("gistiin työnnetään gitillä (--via git)")
     files = collect(a.pairs)
     if not files:
         raise SystemExit("ei tiedostoja")
@@ -204,7 +231,7 @@ def main():
     if via == "git":
         push_git(a.repo, a.branch, a.message, files, a.remote, a.dry_run, token)
     else:
-        push_api(a.repo, a.branch, a.message, files, token, a.dry_run)
+        push_api(a.repo, "main" if a.branch == "auto" else a.branch, a.message, files, token, a.dry_run)
 
 
 if __name__ == "__main__":

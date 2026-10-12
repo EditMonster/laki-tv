@@ -1,12 +1,16 @@
 # LAKI-TV: rakentaa ja julkaisee sivuston GitHub Pagesiin.
-# Turvamalli: päivitysajo työntää varastoon vain data.json-tiedoston. Sivun koodi, fontit ja työkalut tulevat varastosta,
-# data tarkistetaan (validate) ennen rakennusta, ja syötteet, kalenteri, viikkokatsaus ja jakokuva tehdään täällä.
+# Turvamalli: päivitysajo ei koske tähän varastoon lainkaan. Se työntää vain data.json-tiedoston erilliseen, julkiseen
+# data-varastoon (muuttuja LAKITV_DATA_REPO, oletus EditMonster/laki-tv-data) avaimella, joka on rajattu vain sinne.
+# Tämä työnkulku hakee datan sieltä, tarkistaa sen (validate) ja rakentaa sivuston tämän varaston koodista.
+# Ajetaan tunneittain; jos data-varaston paivitetty on jo sivustolla, julkaisu ohitetaan.
 # Pages-asetuksissa lähteeksi valitaan "GitHub Actions".
 name: pages
 on:
   push:
     branches: [main]
     paths: ["data.json", "part_*.html", "build.py", "fonts/**", "assets/**", "tools/**", ".github/workflows/pages.yml"]
+  schedule:
+    - cron: "17 * * * *"
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,19 +22,44 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.data.outputs.skip }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: {python-version: "3.12"}
       - id: pages
         uses: actions/configure-pages@v6
+      - name: Hae uusin data data-varastosta ja tarkista, onko se jo sivustolla
+        id: data
+        env:
+          DATA_REPO: ${{ vars.LAKITV_DATA_REPO || 'EditMonster/laki-tv-data' }}
+          SITE: ${{ steps.pages.outputs.base_url }}/
+          EVENT: ${{ github.event_name }}
+        run: |
+          if curl -fsSL --max-time 30 "https://raw.githubusercontent.com/$DATA_REPO/main/data.json" -o data.uusi.json \
+             && python3 -c "import json; json.load(open('data.uusi.json', encoding='utf-8'))"; then
+            mv data.uusi.json data.json; echo "data: $DATA_REPO"
+          else
+            echo "data: tämän varaston data.json (data-varastoa ei saatu luettua)"
+          fi
+          NEW=$(python3 -c "import json; print(json.load(open('data.json', encoding='utf-8')).get('paivitetty', ''))")
+          LIVE=$(curl -fsSL --max-time 30 "$SITE" | grep -o '"paivitetty":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+          echo "data: $NEW · sivustolla: ${LIVE:-?}"
+          if [ "$EVENT" = "schedule" ] && [ -n "$LIVE" ] && [ "$NEW" = "$LIVE" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"; echo "Ei uutta dataa – ei julkaista."
+          fi
       - name: Asenna riippuvuudet
+        if: steps.data.outputs.skip != 'true'
         run: pip install -q lxml playwright==1.47.0
       - name: Tarkista data (virheellinen data ei päädy sivustolle)
+        if: steps.data.outputs.skip != 'true'
         run: python3 tools/lakitv.py validate data.json
       - name: Rakenna sivu varaston koodista
+        if: steps.data.outputs.skip != 'true'
         run: python3 build.py
       - name: Syötteet, kalenteri ja viikkokatsaus
+        if: steps.data.outputs.skip != 'true'
         env:
           LAKITV_BASE: ${{ steps.pages.outputs.base_url }}/
         run: |
@@ -38,16 +67,20 @@ jobs:
           playwright install --with-deps chromium >/dev/null || true
           python3 tools/lakitv.py viikkokatsaus data.json --out jakelu/viikkokatsaus || true
       - name: Kokoa sivusto
+        if: steps.data.outputs.skip != 'true'
         env:
           LAKITV_DOMAIN: ${{ vars.LAKITV_DOMAIN }}
         run: python3 tools/website.py --page laki-tv.html --feeds jakelu --out site --base "${{ steps.pages.outputs.base_url }}/"
       - name: Jakokuva (sivu 100 tänään)
+        if: steps.data.outputs.skip != 'true'
         continue-on-error: true
         run: python3 tools/assets.py --page site/index.html --out site --og-only
       - uses: actions/upload-pages-artifact@v5
+        if: steps.data.outputs.skip != 'true'
         with: {path: site}
   deploy:
     needs: build
+    if: needs.build.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

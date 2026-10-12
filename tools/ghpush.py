@@ -7,24 +7,28 @@ LÄHDE on tiedosto tai kansio (kansion tiedostot menevät KOHDE/-kansioon). Muut
 jos mikään ei muuttunut, committia ei tehdä.
 
 Tavat:
-  api  Git Data -rajapinta, tunnus ympäristömuuttujassa GITHUB_TOKEN (fine-grained PAT, Contents: read/write kyseiseen varastoon).
-  git  git clone --depth 1 + commit + push HTTPS:n yli; tunnus tulee git-ympäristöstä (Claude-istunnon git-välityspalvelin,
-       credential helper tai GITHUB_TOKEN). Tämä on tapa, joka toimii päivitysajossa.
-  auto GITHUB_TOKEN -> api; muuten git, jos git-ohjelma löytyy; muuten `gh api` (Claude-istunnon gh ei salli kirjoituksia, joten
-       se toimii vain oikean GitHub CLI:n kanssa).
+  git  git clone --depth 1 + commit + push HTTPS:n yli. Avain ympäristömuuttujassa GITHUB_TOKEN annetaan gitille
+       credential helperin kautta: se ei näy komentorivillä, osoitteissa eikä virheilmoituksissa. Ilman avainta
+       työnnön onnistuminen riippuu ympäristön omista git-tunnuksista.
+  api  Git Data -rajapinta (api.github.com) avaimella GITHUB_TOKEN. Ei toimi Claude-istunnossa, jonka välityspalvelin
+       rajaa api.github.com-pyynnöt; tarkoitettu tavalliseen ympäristöön.
+  auto git, jos git-ohjelma löytyy; muuten api.
 
-Turvarajat: oletuksena vain data.json ja source/-kansio kelpaavat kohteiksi (--allow laajentaa), tiedosto enintään 5 Mt,
-ja tunnukselta näyttävä sisältö (webhook-osoite, token, yksityinen avain) pysäyttää työnnön. Mitään ei koskaan poisteta.
+Turvamalli (päivitysajo):
+  * Avain on fine-grained personal access token, joka on rajattu VAIN erilliseen data-varastoon (esim. omistaja/laki-tv-data)
+    ja Contents: read and write -oikeuteen. Sivuston koodivarastoon avain ei ulotu; sivusto hakee datan data-varastosta
+    GitHub Actionsissa ja tarkistaa sen (validate) ennen julkaisua.
+  * Oletuksena vain data.json kelpaa kohteeksi (--allow laajentaa), tiedosto enintään 5 Mt, ja tunnukselta näyttävä sisältö
+    (webhook-osoite, token, yksityinen avain) pysäyttää työnnön. Mitään ei koskaan poisteta.
 
-Päivitysajo työntää vain datan; sivusto rakennetaan varaston omasta koodista GitHub Actionsissa:
-  python3 tools/ghpush.py omistaja/laki-tv -m "LAKI-TV 4.10. klo 06.48" data.json=data.json"""
+  GITHUB_TOKEN=… python3 tools/ghpush.py omistaja/laki-tv-data -m "LAKI-TV 12.10. klo 06.49" data.json=data.json"""
 import argparse, base64, hashlib, json, os, re, shutil, subprocess, sys, tempfile, urllib.request, urllib.error
 
 API = "https://api.github.com"
 SKIP = {"slack.json", "teams.json", ".DS_Store"}
 AUTHOR = ["-c", "user.name=LAKI-TV", "-c", "user.email=laki-tv@users.noreply.github.com"]
 # Turvarajat: päivitysajo saa työntää vain datan (sivuston koodi tulee varastosta, ei ajosta); muut kohteet vaativat --allow.
-ALLOW_DEFAULT = ["data.json", "source/"]
+ALLOW_DEFAULT = ["data.json"]
 MAX_BYTES = 5 * 1024 * 1024
 SECRETS = re.compile(r"hooks\.slack\.com/services/[A-Za-z0-9]|logic\.azure\.com/[^\s\"']{20,}|webhook\.office\.com/[^\s\"']{20,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----")
 
@@ -113,20 +117,36 @@ def push_api(repo, branch, message, files, token, dry):
 
 
 # ---------------------------------------------------------------- git
-def run_git(args, cwd=None, check=True):
-    r = subprocess.run(["git", *AUTHOR, *args], cwd=cwd, capture_output=True, text=True, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+def run_git(args, cwd=None, check=True, cfg=(), env=None):
+    r = subprocess.run(["git", *AUTHOR, *cfg, *args], cwd=cwd, capture_output=True, text=True,
+                       env={**(env or os.environ), "GIT_TERMINAL_PROMPT": "0"})
     if check and r.returncode != 0:
-        raise SystemExit(f"git {' '.join(args[:2])} epäonnistui: {(r.stderr or r.stdout).strip()[-400:]}")
+        msg = (r.stderr or r.stdout).strip()[-400:]
+        if "Authentication failed" in msg or "Invalid username or token" in msg or "403" in msg:
+            msg += "\n  -> tarkista GITHUB_TOKEN: fine-grained token, vain data-varasto, Contents: read and write, ei vanhentunut"
+        raise SystemExit(f"git {' '.join(args[:2])} epäonnistui: {msg}")
     return r
 
 
-def push_git(repo, branch, message, files, remote, dry):
+def credential_helper(token):
+    """Credential helper, joka antaa avaimen gitille ympäristömuuttujasta: avain ei päädy komentoriville, osoitteeseen,
+    git-asetuksiin eikä virheilmoituksiin. Palauttaa (git -c -asetukset, ympäristö, siivottava kansio)."""
+    d = tempfile.mkdtemp(prefix="ghpush-cred-")
+    helper = os.path.join(d, "helper.sh")
+    with open(helper, "w", encoding="utf-8") as f:
+        f.write('#!/bin/sh\necho username=x-access-token\necho "password=$GHPUSH_TOKEN"\n')
+    os.chmod(helper, 0o700)
+    return ["-c", f"credential.helper={helper}"], {**os.environ, "GHPUSH_TOKEN": token}, d
+
+
+def push_git(repo, branch, message, files, remote, dry, token=None):
     if not shutil.which("git"):
         raise SystemExit("git-ohjelmaa ei ole")
     url = remote or f"https://github.com/{repo}.git"
     tmp = tempfile.mkdtemp(prefix="ghpush-")
+    cfg, env, cred_dir = credential_helper(token) if token else ([], None, None)
     try:
-        run_git(["clone", "--quiet", "--depth", "1", "--branch", branch, url, tmp])
+        run_git(["clone", "--quiet", "--depth", "1", "--branch", branch, url, tmp], cfg=cfg, env=env)
         changed = []
         for p, d in files.items():
             dst = os.path.join(tmp, p)
@@ -143,14 +163,19 @@ def push_git(repo, branch, message, files, remote, dry):
             return
         run_git(["add", "-A", "--", *changed], cwd=tmp)
         run_git(["commit", "--quiet", "-m", message], cwd=tmp)
-        r = run_git(["push", "--quiet", "origin", f"HEAD:{branch}"], cwd=tmp, check=False)
-        if r.returncode != 0:   # joku ehti väliin: nouda ja yritä kerran uudelleen
-            run_git(["pull", "--quiet", "--rebase", "origin", branch], cwd=tmp)
-            run_git(["push", "--quiet", "origin", f"HEAD:{branch}"], cwd=tmp)
+        r = run_git(["push", "--quiet", "origin", f"HEAD:{branch}"], cwd=tmp, check=False, cfg=cfg, env=env)
+        if r.returncode != 0:
+            if "rejected" in (r.stderr or "") and "fetch first" in (r.stderr or ""):   # joku ehti väliin: nouda ja yritä kerran uudelleen
+                run_git(["pull", "--quiet", "--rebase", "origin", branch], cwd=tmp, cfg=cfg, env=env)
+                run_git(["push", "--quiet", "origin", f"HEAD:{branch}"], cwd=tmp, cfg=cfg, env=env)
+            else:
+                run_git(["push", "--quiet", "origin", f"HEAD:{branch}"], cwd=tmp, cfg=cfg, env=env)   # sama virhe uudelleen, nyt selitteen kanssa
         sha = run_git(["rev-parse", "HEAD"], cwd=tmp).stdout.strip()
         print(f"OK: commit {sha[:10]} -> {repo}@{branch}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+        if cred_dir:
+            shutil.rmtree(cred_dir, ignore_errors=True)
 
 
 def main():
@@ -161,7 +186,7 @@ def main():
     ap.add_argument("-m", "--message", default="LAKI-TV: sisällön päivitys")
     ap.add_argument("--via", choices=["auto", "api", "git"], default="auto")
     ap.add_argument("--remote", help="git-osoite (oletus https://github.com/OMISTAJA/VARASTO.git)")
-    ap.add_argument("--allow", action="append", help="sallittu kohdepolku tai kansio/ (oletus: data.json ja source/)")
+    ap.add_argument("--allow", action="append", help="sallittu kohdepolku tai kansio/ (oletus: vain data.json)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     if not re.fullmatch(r"[\w.-]+/[\w.-]+", a.repo):
@@ -171,11 +196,13 @@ def main():
         raise SystemExit("ei tiedostoja")
     guard(files, a.allow or ALLOW_DEFAULT)
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if a.remote and re.search(r"://[^/]*:[^/@]+@", a.remote):
+        raise SystemExit("älä laita avainta --remote-osoitteeseen; anna se ympäristömuuttujassa GITHUB_TOKEN")
     via = a.via
     if via == "auto":
-        via = "api" if token else "git" if shutil.which("git") else "api"
+        via = "git" if shutil.which("git") else "api"
     if via == "git":
-        push_git(a.repo, a.branch, a.message, files, a.remote, a.dry_run)
+        push_git(a.repo, a.branch, a.message, files, a.remote, a.dry_run, token)
     else:
         push_api(a.repo, a.branch, a.message, files, token, a.dry_run)
 

@@ -1,10 +1,8 @@
 """Työkalun regressiotestit (ei verkkoa: verkkohaut korvataan)."""
-import os as _os
-ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 import sys, json, copy, datetime, subprocess, os, re
-sys.path.insert(0, ROOT + "/tools")
+sys.path.insert(0, "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/tools")
 import lakitv as L
-B = ROOT + "/"
+B = "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/"
 D = json.load(open(B + "data.json", encoding="utf-8"))
 fails = []
 def ok(c, msg, extra=""):
@@ -193,5 +191,33 @@ try:
     try: L.src_hudoc(); ok(False, "src_hudoc: verkkovirhe nousee")
     except OSError: ok(True, "src_hudoc: verkkovirhe nousee")
 finally: L.fetch = orig
+# 24. ghpush: työntö paikalliseen varastoon avaimella (credential helper), turvarajat, avain ei vuoda
+import shutil, tempfile
+GH = B + "tools/ghpush.py"
+td = tempfile.mkdtemp(prefix="ghpush-test-"); env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+def sh(*a, **k): return subprocess.run(a, capture_output=True, text=True, cwd=td, env={**env, **k.get("env", {})})
+sh("git", "init", "-q", "--bare", "remote.git"); sh("git", "clone", "-q", "remote.git", "seed")
+seed = td + "/seed"
+subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "checkout", "-q", "-b", "main"], cwd=seed, capture_output=True)
+open(seed + "/data.json", "w").write('{"paivitetty":"2026-10-11T14:49:17+03:00"}'); open(seed + "/README.md", "w").write("laki-tv-data\n")
+subprocess.run(["git", "add", "."], cwd=seed); subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init"], cwd=seed)
+subprocess.run(["git", "push", "-q", "origin", "main"], cwd=seed, capture_output=True)
+open(td + "/data.json", "w").write('{"paivitetty":"2026-10-12T06:49:36+03:00"}')
+open(td + "/leak.json", "w").write('{"x":"ghp_abcdefghijklmnopqrstuvwxyz1234"}')
+r = sh(sys.executable, GH, "omistaja/laki-tv-data", "--remote", td + "/remote.git", "-m", "LAKI-TV 12.10. klo 06.49", "data.json=data.json", env={"GITHUB_TOKEN": "github_pat_TESTI_000000000000000000"})
+head = subprocess.run(["git", "show", "main:data.json"], cwd=td + "/remote.git", capture_output=True, text=True).stdout
+ok(r.returncode == 0 and "OK: commit" in r.stdout and "06:49:36" in head, "ghpush: data.json työntyy avaimella", r.stdout[-120:] + r.stderr[-200:])
+r = sh(sys.executable, GH, "omistaja/laki-tv-data", "--remote", td + "/remote.git", "data.json=data.json", env={"GITHUB_TOKEN": "x"})
+ok(r.returncode == 0 and "Ei muutoksia" in r.stdout, "ghpush: muuttumaton data ei tee committia", r.stdout[-120:])
+r = sh(sys.executable, GH, "omistaja/laki-tv-data", "--remote", td + "/remote.git", "data.json=build.py")
+ok(r.returncode != 0 and "sallittujen" in (r.stderr + r.stdout), "ghpush: muu kohde kuin data.json hylätään")
+r = sh(sys.executable, GH, "omistaja/laki-tv-data", "--remote", td + "/remote.git", "leak.json=data.json")
+ok(r.returncode != 0 and "tunnukselta" in (r.stderr + r.stdout), "ghpush: tunnukselta näyttävä sisältö hylätään")
+r = sh(sys.executable, GH, "omistaja/laki-tv-data", "--remote", "https://x:avain@github.com/a/b.git", "data.json=data.json", env={"GITHUB_TOKEN": "x"})
+ok(r.returncode != 0 and "GITHUB_TOKEN" in (r.stderr + r.stdout), "ghpush: avain osoitteessa hylätään")
+r = sh(sys.executable, GH, "omistaja/ei-ole", "--remote", "https://127.0.0.1:9/ei.git", "data.json=data.json", env={"GITHUB_TOKEN": "github_pat_SALAINEN_EI_SAA_NAKYA"})
+ok(r.returncode != 0 and "SALAINEN" not in (r.stderr + r.stdout), "ghpush: avain ei vuoda virheilmoitukseen", (r.stderr + r.stdout)[-160:])
+ok(not any(n.startswith("ghpush-cred-") for n in os.listdir(tempfile.gettempdir())), "ghpush: credential helper siivotaan")
+shutil.rmtree(td, ignore_errors=True)
 print(f"{len(fails)} virhettä" if fails else "KAIKKI OK")
 sys.exit(1 if fails else 0)

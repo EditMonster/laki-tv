@@ -137,6 +137,14 @@ with sync_playwright() as p:
     pg2.fill("#ghRepo", "omistaja/laki-tv"); pg2.click("#jakeluAdmin button"); pg2.wait_for_timeout(400)
     w = pg2.evaluate("window.__writes")
     check("github_repo tallentuu samaan dokumenttiin", w[-1][2].get("github_repo") == "omistaja/laki-tv" and w[-1][2]["slack_webhook"].startswith("https://"), w[-1])
+    # datavaraston avain: salasanakenttä, muotovaatimus, tallentuu vain omistajan dokumenttiin
+    check("avainkenttä on salasanakenttä", pg2.get_attribute("#ghToken", "type") == "password")
+    pg2.fill("#ghToken", "salasana123"); pg2.click("#jakeluAdmin button"); pg2.wait_for_timeout(200)
+    check("validointi: avaimen muoto", "github_pat" in pg2.inner_text("#whStatus") and len(pg2.evaluate("window.__writes")) == len(w))
+    pg2.fill("#ghToken", "github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz"); pg2.click("#jakeluAdmin button"); pg2.wait_for_timeout(400)
+    w = pg2.evaluate("window.__writes")
+    check("avain tallentuu asetukset/jakelu-dokumenttiin", w[-1][1] == "asetukset/jakelu" and w[-1][2].get("github_token", "").startswith("github_pat_"))
+    check("avain ei päädy selaimen muistiin", "github_pat" not in pg2.evaluate("JSON.stringify(Object.assign({}, localStorage))"))
     sw = pg2.evaluate("document.documentElement.scrollWidth <= innerWidth")
     check("mobiili: ei vaakavieritystä paneelissa", sw)
     # 7) aamukooste 107

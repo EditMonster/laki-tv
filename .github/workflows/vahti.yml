@@ -1,9 +1,9 @@
-# LAKI-TV vahti: tarkistaa joka aamu klo 10.10 (Helsinki), että päivitysajo on työntänyt tuoreen sisällön.
-# Jos data.json on yli 20 tuntia vanha, työnkulku epäonnistuu ja GitHub lähettää siitä sähköpostin varaston omistajalle.
+# LAKI-TV vahti: tarkistaa joka aamu, että päivitysajo on työntänyt tuoreen sisällön data-varastoon.
+# Jos data on yli 20 tuntia vanhaa, työnkulku epäonnistuu ja GitHub lähettää siitä sähköpostin varaston omistajalle.
 name: vahti
 on:
   schedule:
-    - cron: "10 7 * * *"   # 07:10 UTC = 10:10 Helsinki (kesäaika 09:10 UTC olisi 10:10; talvella tämä on 09:10 Helsinki – riittää)
+    - cron: "10 7 * * *"   # 07:10 UTC = 10:10 Helsinki kesäaikaan, 09:10 talvella – riittää
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,7 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Onko sisältö tuoretta?
+        env:
+          DATA_REPO: ${{ vars.LAKITV_DATA_REPO || 'EditMonster/laki-tv-data' }}
         run: |
+          curl -fsSL --max-time 30 "https://raw.githubusercontent.com/$DATA_REPO/main/data.json" -o data.uusi.json && mv data.uusi.json data.json \
+            || echo "data-varastoa ei saatu luettua – tarkistetaan tämän varaston data.json"
           python3 - <<'PY'
           import json, datetime, sys
           d = json.load(open("data.json", encoding="utf-8"))
@@ -21,5 +25,5 @@ jobs:
           age = (datetime.datetime.now(datetime.timezone.utc) - t).total_seconds() / 3600
           print(f"paivitetty {d['paivitetty']}, ikä {age:.1f} h")
           if age > 20:
-              sys.exit(f"LAKI-TV: sisältö on {age:.0f} tuntia vanhaa – tarkista ajastettu päivitysajo ja GitHub-peilaus.")
+              sys.exit(f"LAKI-TV: sisältö on {age:.0f} tuntia vanhaa – tarkista ajastettu päivitysajo ja GitHub-peilaus (data-varasto).")
           PY

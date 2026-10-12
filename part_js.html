@@ -2742,8 +2742,9 @@ document.getElementById("fClear").addEventListener("click", () => { state.filter
 document.getElementById("fShow").addEventListener("click", () => { panel.close(); go(110); });
 document.getElementById("rmFilterClear").addEventListener("click", () => { state.filter.clear(); applyFilter(); });
 
-/* ---------------- Ylläpitäjän jakeluasetukset: Slack- ja Teams-webhookit (asetukset/jakelu; vain sivun omistaja lukee ja kirjoittaa).
-   Ajastettu päivitys lukee ne ja lähettää aamukoosteen. Muille lukijoille lomaketta ei näytetä. ---------------- */
+/* ---------------- Ylläpitäjän jakeluasetukset: Slack- ja Teams-webhookit sekä GitHub-datavarasto ja sen avain
+   (asetukset/jakelu; vain sivun omistaja lukee ja kirjoittaa). Ajastettu päivitys lukee ne, lähettää aamukoosteen ja
+   työntää data.json-tiedoston datavarastoon. Muille lukijoille lomaketta ei näytetä. ---------------- */
 async function renderJakeluAdmin() {
   try {
     const c = window.claude;
@@ -2761,15 +2762,22 @@ async function renderJakeluAdmin() {
       h("input", {type:"url", id:"whSlack", class:"pn-search", value:cur.slack_webhook || "", placeholder:"https://hooks.slack.com/services/…", spellcheck:"false"}),
       h("label", {class:"pn-h", for:"whTeams"}, "Teams webhook"),
       h("input", {type:"url", id:"whTeams", class:"pn-search", value:cur.teams_webhook || "", placeholder:"https://….logic.azure.com/…", spellcheck:"false"}),
-      h("label", {class:"pn-h", for:"ghRepo"}, S("GitHub-varasto (sivuston peilaus)", "GitHub-förråd (spegling av webbplatsen)", "GitHub repository (website mirror)")),
-      h("p", {class:"pn-help"}, S("Muodossa omistaja/varasto. Päivitysajo työntää sivun ja syötteet sinne, ja GitHub Pages julkaisee verkkosivuston. Vain varaston nimi; ei tunnuksia.",
-        "I formen ägare/förråd. Uppdateringskörningen skickar sidan och flödena dit, och GitHub Pages publicerar webbplatsen. Bara namnet; inga nycklar.",
-        "As owner/repository. The update run pushes the page and feeds there and GitHub Pages publishes the website. Name only; no credentials.")),
-      h("input", {type:"text", id:"ghRepo", class:"pn-search", value:cur.github_repo || "", placeholder:"omistaja/laki-tv", spellcheck:"false", autocapitalize:"off"}),
+      h("label", {class:"pn-h", for:"ghRepo"}, S("GitHub-datavarasto (verkkosivuston päivitys)", "GitHub-dataförråd (uppdatering av webbplatsen)", "GitHub data repository (website updates)")),
+      h("p", {class:"pn-help"}, S("Muodossa omistaja/laki-tv-data: erillinen julkinen varasto, johon päivitysajo työntää vain data.json-tiedoston. Verkkosivuston varasto hakee datan sieltä, tarkistaa sen ja julkaisee sivuston.",
+        "I formen ägare/laki-tv-data: ett separat offentligt förråd dit uppdateringskörningen bara skickar filen data.json. Webbplatsens förråd hämtar datan därifrån, kontrollerar den och publicerar webbplatsen.",
+        "As owner/laki-tv-data: a separate public repository to which the update run pushes only data.json. The website repository fetches the data from there, validates it and publishes the site.")),
+      h("input", {type:"text", id:"ghRepo", class:"pn-search", value:cur.github_repo || "", placeholder:"omistaja/laki-tv-data", spellcheck:"false", autocapitalize:"off"}),
+      h("label", {class:"pn-h", for:"ghToken"}, S("GitHub-avain (fine-grained token, vain datavarastoon)", "GitHub-nyckel (fine-grained token, bara dataförrådet)", "GitHub key (fine-grained token, data repository only)")),
+      h("p", {class:"pn-help"}, S("Luo GitHubissa fine-grained personal access token, jolla on pääsy vain datavarastoon ja oikeus Contents: read and write. Avain tallentuu vain tähän omistajan asetukseen; ajo käyttää sitä pelkän data.json-tiedoston työntämiseen eikä koskaan tulosta sitä.",
+        "Skapa en fine-grained personal access token i GitHub med åtkomst bara till dataförrådet och rättigheten Contents: read and write. Nyckeln sparas bara i denna ägarinställning; körningen använder den enbart för att skicka data.json och skriver aldrig ut den.",
+        "Create a fine-grained personal access token in GitHub with access to the data repository only and the permission Contents: read and write. The key is stored only in this owner setting; the run uses it solely to push data.json and never prints it.")),
+      h("input", {type:"password", id:"ghToken", class:"pn-search", value:cur.github_token || "", placeholder:"github_pat_…", spellcheck:"false", autocomplete:"off", autocapitalize:"off"}),
       h("div", {class:"pn-actions"}, h("span", {id:"whStatus", "aria-live":"polite"}, cur.slack_webhook || cur.teams_webhook || cur.github_repo ? S("Käytössä", "I bruk", "In use") : ""),
         h("button", {type:"button", class:"pn-btn pri", onclick:async () => {
           const st = document.getElementById("whStatus"); st.textContent = S("Tallennetaan…", "Sparar…");
-          const v = {slack_webhook:document.getElementById("whSlack").value.trim(), teams_webhook:document.getElementById("whTeams").value.trim(), github_repo:document.getElementById("ghRepo").value.trim(), paivitetty:new Date().toISOString()};
+          const v = {slack_webhook:document.getElementById("whSlack").value.trim(), teams_webhook:document.getElementById("whTeams").value.trim(), github_repo:document.getElementById("ghRepo").value.trim(), github_token:document.getElementById("ghToken").value.trim(), paivitetty:new Date().toISOString()};
+          if (v.github_token && !/^(github_pat_[A-Za-z0-9_]{20,}|ghp_[A-Za-z0-9]{20,})$/.test(v.github_token)) { st.textContent = S("Avain ei näytä GitHubin avaimelta (github_pat_…)", "Nyckeln ser inte ut som en GitHub-nyckel (github_pat_…)", "The key does not look like a GitHub token (github_pat_…)"); return; }
+          if (v.github_token && !v.github_repo) { st.textContent = S("Anna myös datavarasto (omistaja/nimi)", "Ange också dataförrådet (ägare/namn)", "Also enter the data repository (owner/name)"); return; }
           if ((v.slack_webhook && !/^https:\/\//.test(v.slack_webhook)) || (v.teams_webhook && !/^https:\/\//.test(v.teams_webhook))) { st.textContent = S("Osoitteen on alettava https://", "Adressen måste börja med https://", "The address must start with https://"); return; }
           if (v.github_repo && !/^[\w.-]+\/[\w.-]+$/.test(v.github_repo)) { st.textContent = S("Varasto muodossa omistaja/nimi", "Förrådet i formen ägare/namn", "Repository as owner/name"); return; }
           try { await ref.set(v); st.textContent = S("Tallennettu.", "Sparat.", "Saved."); } catch (e) { st.textContent = S("Tallennus epäonnistui.", "Det gick inte att spara.", "Saving failed."); }

@@ -1,5 +1,5 @@
 {
- "paivitetty": "2026-10-11T14:49:17+03:00",
+ "paivitetty": "2026-10-12T06:49:36+03:00",
  "tiedote": "LAUSUNNOT: LAPSIRAUHA 15.10. ASTI",
  "etusivu": [],
  "kanavat": {
@@ -4082,129 +4082,129 @@
  ],
  "visa": [
   {
-   "ref": "edpb-2026-10-08-uber",
-   "kysymys": "Mikä viranomainen määräsi Uberille 824 990 000 euron sakon?",
+   "ref": "edpb-2026-10-09-iqvia",
+   "kysymys": "Kuinka suuren sakon Italian tietosuojaviranomainen määräsi IQVIAlle?",
    "vaihtoehdot": [
-    "Ranskan tietosuojaviranomainen",
-    "Alankomaiden tietosuojaviranomainen",
-    "Euroopan komissio"
-   ],
-   "oikea": "B",
-   "selitys": "Asia käsiteltiin yhden luukun menettelyssä.",
-   "kysymys_sv": "Vilken myndighet påförde Uber en avgift på 824 990 000 euro?",
-   "vaihtoehdot_sv": [
-    "Frankrikes dataskyddsmyndighet",
-    "Nederländernas dataskyddsmyndighet",
-    "Europeiska kommissionen"
-   ],
-   "selitys_sv": "Ärendet behandlades i enhetsmekanismen.",
-   "kysymys_en": "Which authority fined Uber EUR 824,990,000?",
-   "vaihtoehdot_en": [
-    "French data protection authority",
-    "Dutch Data Protection Authority",
-    "European Commission"
-   ],
-   "selitys_en": "Handled under the one-stop-shop procedure."
-  },
-  {
-   "ref": "tsv-2026-10-08-mindemo",
-   "kysymys": "Mitä Mindemo Oy:n palvelusta välitettiin Googlelle, Metalle ja Microsoftille?",
-   "vaihtoehdot": [
-    "Terveyteen liittyviä tietoja",
-    "Maksukorttitietoja",
-    "Henkilötunnuksia"
+    "7 miljoonaa euroa",
+    "70 miljoonaa euroa",
+    "700 000 euroa"
    ],
    "oikea": "A",
-   "selitys": "Seuraamusmaksu oli 33 000 euroa.",
-   "kysymys_sv": "Vad överfördes från Mindemo Oy:s tjänst till Google, Meta och Microsoft?",
+   "selitys": "Terveystiedot eivät olleet anonyymejä.",
+   "kysymys_sv": "Hur stor sanktionsavgift påförde Italiens dataskyddsmyndighet IQVIA?",
    "vaihtoehdot_sv": [
-    "Hälsorelaterade uppgifter",
-    "Betalkortsuppgifter",
-    "Personbeteckningar"
+    "7 miljoner euro",
+    "70 miljoner euro",
+    "700 000 euro"
    ],
-   "selitys_sv": "Påföljdsavgiften var 33 000 euro.",
-   "kysymys_en": "What did Mindemo Oy's service transfer to Google, Meta and Microsoft?",
+   "selitys_sv": "Hälsouppgifterna var inte anonyma.",
+   "kysymys_en": "How large a fine did the Italian DPA impose on IQVIA?",
    "vaihtoehdot_en": [
-    "Health-related data",
-    "Payment card details",
-    "Personal identity codes"
+    "EUR 7 million",
+    "EUR 70 million",
+    "EUR 700,000"
    ],
-   "selitys_en": "The fine was EUR 33,000."
+   "selitys_en": "The health data were not anonymous."
   },
   {
-   "ref": "he-2026-10-08-edunvalvontavaltuutus",
-   "kysymys": "Ketä edunvalvontavaltuutettu ei esityksen mukaan voisi koskaan edustaa vastapuolena?",
+   "ref": "edpb-2026-10-09-bbva",
+   "kysymys": "Mitä BBVA:n Italian sivuliike ei noudattanut?",
    "vaihtoehdot": [
-    "Valtuuttajan naapuria",
-    "Pankkia",
-    "Itseään, puolisoaan tai lastaan"
+    "Tietoturvaloukkauksen ilmoitusvelvollisuutta",
+    "Asiakkaan suoramarkkinoinnin vastustusta",
+    "Tietojen siirtoa koskevia sääntöjä"
+   ],
+   "oikea": "B",
+   "selitys": "Mainoksia tuli 7 kk vastustuksen jälkeen.",
+   "kysymys_sv": "Vad respekterade BBVA:s italienska filial inte?",
+   "vaihtoehdot_sv": [
+    "Skyldigheten att anmäla personuppgiftsincidenter",
+    "Kundens invändning mot direktmarknadsföring",
+    "Reglerna om överföring av uppgifter"
+   ],
+   "selitys_sv": "Reklam kom i 7 mån. efter invändningen.",
+   "kysymys_en": "What did BBVA's Italian branch fail to respect?",
+   "vaihtoehdot_en": [
+    "Data breach notification duty",
+    "Objection to direct marketing",
+    "Rules on data transfers"
+   ],
+   "selitys_en": "Adverts continued 7 months after objection."
+  },
+  {
+   "ref": "HE 238/2026 vp",
+   "kysymys": "Mikä olisi kanneaika työsuhteen päätyttyä HE 238/2026 vp:n mukaan?",
+   "vaihtoehdot": [
+    "Kuusi kuukautta",
+    "Kolme vuotta",
+    "Kaksi vuotta"
    ],
    "oikea": "C",
-   "selitys": "Ehdottomia esteellisyysperusteita.",
-   "kysymys_sv": "Mot vem skulle fullmäktigen enligt förslaget aldrig kunna företräda fullmaktsgivaren?",
+   "selitys": "Työsuhteen aikana vanhentumisaika 3 vuotta.",
+   "kysymys_sv": "Hur lång skulle talefristen vara efter anställningens slut enligt RP 238/2026 rd?",
    "vaihtoehdot_sv": [
-    "Fullmaktsgivarens granne",
-    "En bank",
-    "Sig själv, sin make eller sitt barn"
+    "Sex månader",
+    "Tre år",
+    "Två år"
    ],
-   "selitys_sv": "Dessa skulle vara ovillkorliga jävsgrunder.",
-   "kysymys_en": "Against whom could an attorney never represent the grantor under the bill?",
+   "selitys_sv": "Under anställningen preskription på 3 år.",
+   "kysymys_en": "Under HE 238/2026 vp, what would the time limit for action be after employment ends?",
    "vaihtoehdot_en": [
-    "The grantor's neighbour",
-    "A bank",
-    "Self, spouse or child"
+    "Six months",
+    "Three years",
+    "Two years"
    ],
-   "selitys_en": "These would be absolute disqualifications."
+   "selitys_en": "During employment: 3-year limitation."
   },
   {
-   "ref": "he-2026-10-08-metsakatolaki",
-   "kysymys": "Mikä viranomainen valvoisi EU:n metsäkatoasetusta esityksen mukaan?",
+   "ref": "he-2026-10-08-yel",
+   "kysymys": "Kuinka pitkäksi ajaksi yrittäjä sitoutuisi työtulon perusteen valintaan?",
    "vaihtoehdot": [
-    "Metsähallitus",
-    "Ruokavirasto",
-    "Tukes"
+    "Yhdeksi vuodeksi",
+    "Kolmeksi vuodeksi",
+    "Viideksi vuodeksi"
    ],
    "oikea": "B",
-   "selitys": "Lain on tarkoitus tulla voimaan 30.12.2026.",
-   "kysymys_sv": "Vilken myndighet skulle enligt förslaget övervaka EU:s avskogningsförordning?",
+   "selitys": "Valinta: kokonaisarvio tai ansiotulo.",
+   "kysymys_sv": "För hur lång tid skulle företagaren binda sig vid valet av grund för arbetsinkomsten?",
    "vaihtoehdot_sv": [
-    "Forststyrelsen",
-    "Livsmedelsverket",
-    "Tukes"
+    "Ett år",
+    "Tre år",
+    "Fem år"
    ],
-   "selitys_sv": "Lagen avses träda i kraft 30.12.2026.",
-   "kysymys_en": "Which authority would supervise the EU Deforestation Regulation under the bill?",
+   "selitys_sv": "Val: helhetsbedömning eller förvärvsinkomst.",
+   "kysymys_en": "For how long would a self-employed person be bound by the choice of income basis?",
    "vaihtoehdot_en": [
-    "Metsähallitus",
-    "Finnish Food Authority",
-    "Tukes"
+    "One year",
+    "Three years",
+    "Five years"
    ],
-   "selitys_en": "Intended to take effect on 30.12.2026."
+   "selitys_en": "Overall assessment or earned income."
   },
   {
-   "ref": "TT 2026:34",
-   "kysymys": "Saiko työnantaja irtisanoa päihtyneenä työskennelleen aluksen päällikön ilman varoitusta?",
+   "ref": "he-2026-10-08-korkovahennys",
+   "kysymys": "Mihin lainoihin korkovähennysrajoituksen uusi poikkeus liittyisi?",
    "vaihtoehdot": [
-    "Kyllä",
-    "Ei, varoitus vaadittiin",
-    "Ei, vain lomautus oli mahdollinen"
+    "Huoltovarmuuskriittisiin infrahankkeisiin",
+    "Asuntotuotantoon",
+    "Tutkimus- ja kehityshankkeisiin"
    ],
    "oikea": "A",
-   "selitys": "Asemassa korostui meriturvallisuus.",
-   "kysymys_sv": "Fick arbetsgivaren säga upp en befälhavare som arbetat berusad utan varning?",
+   "selitys": "Lain on tarkoitus tulla voimaan 1.1.2027.",
+   "kysymys_sv": "Vilka lån skulle det nya undantaget från ränteavdragsbegränsningen gälla?",
    "vaihtoehdot_sv": [
-    "Ja",
-    "Nej, varning krävdes",
-    "Nej, endast permittering var möjlig"
+    "Infrastrukturprojekt kritiska för försörjningsberedskapen",
+    "Bostadsproduktion",
+    "Forsknings- och utvecklingsprojekt"
    ],
-   "selitys_sv": "Ställningen var viktig för sjösäkerheten.",
-   "kysymys_en": "Could the employer dismiss the intoxicated ship's master without a warning?",
+   "selitys_sv": "Lagen avses träda i kraft 1.1.2027.",
+   "kysymys_en": "Which loans would the new exception to the interest deduction limit cover?",
    "vaihtoehdot_en": [
-    "Yes",
-    "No, a warning was required",
-    "No, only a lay-off was possible"
+    "Supply-critical infrastructure",
+    "Housing production",
+    "R&D projects"
    ],
-   "selitys_en": "The role mattered for maritime safety."
+   "selitys_en": "Intended to enter into force 1 Jan 2027."
   }
  ],
  "tilastot": {
@@ -5857,7 +5857,7 @@
     10,
     10
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 10
   },
   "KHO": {
@@ -5873,7 +5873,7 @@
     6,
     6
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 6
   },
   "OKV": {
@@ -5891,7 +5891,7 @@
    ],
    "aika": "2026-10-09T06:46",
    "n": 9,
-   "virhe": "2026-10-11T14:47 HTTPError: HTTP Error 403: Forbidden"
+   "virhe": "2026-10-12T06:46 HTTPError: HTTP Error 403: Forbidden"
   },
   "EOA": {
    "hist": [
@@ -5908,7 +5908,7 @@
    ],
    "aika": "2026-10-09T06:46",
    "n": 15,
-   "virhe": "2026-10-11T14:47 HTTPError: HTTP Error 403: Forbidden"
+   "virhe": "2026-10-12T06:46 HTTPError: HTTP Error 403: Forbidden"
   },
   "KKV": {
    "hist": [
@@ -5923,7 +5923,7 @@
     10,
     10
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 10
   },
   "TSV": {
@@ -5941,7 +5941,7 @@
    ],
    "aika": "2026-10-09T06:46",
    "n": 20,
-   "virhe": "2026-10-11T14:47 HTTPError: HTTP Error 403: Forbidden"
+   "virhe": "2026-10-12T06:46 HTTPError: HTTP Error 403: Forbidden"
   },
   "TSV-Finlex": {
    "hist": [
@@ -5956,7 +5956,7 @@
     14,
     14
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 14
   },
   "TT": {
@@ -5972,7 +5972,7 @@
     20,
     20
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 20
   },
   "MAO": {
@@ -5988,7 +5988,7 @@
     6,
     6
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 6
   },
   "HAO": {
@@ -6004,7 +6004,7 @@
     99,
     99
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 99
   },
   "VN": {
@@ -6023,7 +6023,7 @@
    "aika": "2026-10-09T06:46",
    "n": 2,
    "hiljaa": "2026-10-09T06:46",
-   "virhe": "2026-10-11T14:47 HTTPError: HTTP Error 403: Forbidden"
+   "virhe": "2026-10-12T06:46 HTTPError: HTTP Error 403: Forbidden"
   },
   "FIVA": {
    "hist": [
@@ -6038,7 +6038,7 @@
     12,
     12
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 12
   },
   "ICJ": {
@@ -6054,7 +6054,7 @@
     209,
     209
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 209
   },
   "EIT": {
@@ -6072,11 +6072,10 @@
    ],
    "aika": "2026-10-10T06:50",
    "n": 16,
-   "virhe": "2026-10-11T14:47 HTTPError: HTTP Error 403: Forbidden"
+   "virhe": "2026-10-12T06:46 HTTPError: HTTP Error 403: Forbidden"
   },
   "EUT": {
    "hist": [
-    37,
     39,
     52,
     53,
@@ -6085,10 +6084,12 @@
     58,
     58,
     33,
-    33
+    33,
+    23
    ],
-   "aika": "2026-10-11T14:47",
-   "n": 33
+   "aika": "2026-10-12T06:46",
+   "n": 23,
+   "hiljaa": "2026-10-12T06:46"
   },
   "HO": {
    "hist": [
@@ -6103,7 +6104,7 @@
     77,
     77
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 77
   },
   "VakO": {
@@ -6119,7 +6120,7 @@
     13,
     13
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 13
   },
   "EDPB": {
@@ -6135,17 +6136,11 @@
     16,
     16
    ],
-   "aika": "2026-10-11T14:47",
+   "aika": "2026-10-12T06:46",
    "n": 16
   }
  },
  "_ajot": [
-  {
-   "aika": "2026-10-05T06:51",
-   "uusia": 0,
-   "juttuja": 103,
-   "hiljaa": []
-  },
   {
    "aika": "2026-10-05T14:51",
    "uusia": 2,
@@ -6238,6 +6233,15 @@
    "juttuja": 107,
    "hiljaa": [
     "VN"
+   ]
+  },
+  {
+   "aika": "2026-10-12T06:49",
+   "uusia": 0,
+   "juttuja": 107,
+   "hiljaa": [
+    "VN",
+    "EUT"
    ]
   }
  ],

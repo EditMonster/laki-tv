@@ -236,5 +236,24 @@ r = sh(sys.executable, GH, "gist:0123456789abcdef0123", "--remote", td + "/remot
 head2 = subprocess.run(["git", "show", "master:data.json"], cwd=td + "/remote2.git", capture_output=True, text=True).stdout
 ok(r.returncode == 0 and "06:49:36" in head2, "ghpush: haara tunnistetaan automaattisesti (master)", r.stdout[-120:] + r.stderr[-200:])
 shutil.rmtree(td, ignore_errors=True)
+# Hankeikkuna: lausuntopyyntökirjeeksi valitaan suomenkielinen PDF, ei Outlook-viestiä (.msg) eikä ruotsinkielistä versiota
+L._ASETTAJAT = {}
+rec = {"kohde": {"tunnus": "OKM999:00/2026", "nimi": {"fi": "Testiasetus"}, "kuvaus": {"fi": "k"}, "asianumerot": ["VN/1/2026"]},
+       "etapit": [{"tyyppi": "LAUSUNTOKIERROS", "alku": "2026-10-13", "loppu": "2026-11-25"}],
+       "asiakirjat": [{"tyyppi": "LAUSUNTOPYYNTO", "url": "https://x.test/a/LAUSUNTOPYYNTO.MSG", "nimi": {"fi": "Lausuntopyyntö: testiasetus"}},
+                      {"tyyppi": "LAUSUNTOPYYNTO", "url": "https://x.test/b/LAUSUNTOPYYNTO.PDF", "nimi": {"fi": "Statsrådets förordning om ändring av förordningen"}},
+                      {"tyyppi": "LAUSUNTOPYYNTO", "url": "https://x.test/c/LAUSUNTOPYYNTO.PDF", "nimi": {"fi": "Valtioneuvoston asetus perusopetusasetuksen muuttamisesta"}},
+                      {"tyyppi": "MUU", "url": "https://x.test/d/liite.pdf", "nimi": {"fi": "Liite"}}]}
+hi = L._hanke_item(rec)
+ok(hi and hi["lausuntopyynto_pdf"] == "https://x.test/c/LAUSUNTOPYYNTO.PDF", "hankeikkuna: suomenkielinen PDF valitaan (.msg ja ruotsi ohitetaan)", hi and hi["lausuntopyynto_pdf"])
+rec["asiakirjat"] = rec["asiakirjat"][:1]
+ok(L._hanke_item(rec)["lausuntopyynto_pdf"] is None, "hankeikkuna: pelkkä .msg -> ei liitettä")
+# docx-teksti ilman lisäkirjastoja
+import zipfile, io
+buf = io.BytesIO()
+with zipfile.ZipFile(buf, "w") as z:
+    z.writestr("[Content_Types].xml", "<Types/>")
+    z.writestr("word/document.xml", '<w:document><w:body><w:p><w:r><w:t>Ensimm\u00e4inen</w:t></w:r><w:tab/><w:r><w:t>kappale &amp; merkki</w:t></w:r></w:p><w:p><w:r><w:t>Toinen</w:t></w:r></w:p></w:body></w:document>')
+ok(L.docx_text(buf.getvalue()) == "Ensimm\u00e4inen\tkappale & merkki\nToinen", "docx_text lukee kappaleet", L.docx_text(buf.getvalue()))
 print(f"{len(fails)} virhettä" if fails else "KAIKKI OK")
 sys.exit(1 if fails else 0)

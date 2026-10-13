@@ -2310,10 +2310,10 @@ function buildDigest() {
   return compose(top, body, [bot], [{t:S("Tänään", "I dag"), p:101}, {t:S("Viikko", "Vecka"), p:102}, {t:S("Jak. 109", "Dist. 109", "Feeds 109"), p:109}, {t:S("Etusivu", "Start"), p:100}], S("aamukooste", "morgonsammandrag"));
 }
 /* 198 TILA: lähteiden ja ajojen tila (lähdevahti). Näyttää, onko jokin lähde hiljentynyt tai ajo jäänyt väliin. */
-const SRC_LABEL = {KKO:"KKO", KHO:"KHO", OKV:"OKV", EOA:"EOA", KKV:"KKV", TSV:"tietosuoja.fi", "TSV-Finlex":"Finlex TSV", TT:"Työtuomiois.", MAO:"Markkinaoik.",
-  HAO:"HaO", VN:"Valtioneuv.", FIVA:"Fiva", ICJ:"ICJ", EIT:"EIT HUDOC", EUT:"EU-tuomiois.", HO:"Hovioikeudet", VakO:"VakO", EDPB:"EDPB"};
-const SRC_LABEL_EN = {TT:"Labour Ct", MAO:"Market Ct", VN:"Government", EIT:"ECHR HUDOC", EUT:"CJEU", HO:"Appeal Cts", VakO:"Insur. Ct"};
-const SRC_LABEL_SV = {TT:"Arbetsdomst.", MAO:"Marknadsdomst", VN:"Statsrådet", EIT:"EMD HUDOC", EUT:"EU-domstolen", HO:"Hovrätterna", VakO:"FörsäkrD"};
+const SRC_LABEL = {KKO:"KKO", KHO:"KHO", OKV:"OKV Finlex", EOA:"EOA Finlex", KKV:"KKV", TSV:"tietosuoja.fi", "TSV-Finlex":"Finlex TSV", TT:"Työtuomiois.", MAO:"Markkinaoik.",
+  HAO:"HaO", VN:"Valtioneuv.", HE:"HE eduskunta", LAUSUNNOT:"Hankeikkuna", FIVA:"Fiva", ICJ:"ICJ", EIT:"EIT HUDOC", EUT:"EU-tuomiois.", HO:"Hovioikeudet", VakO:"VakO", EDPB:"EDPB"};
+const SRC_LABEL_EN = {TT:"Labour Ct", MAO:"Market Ct", VN:"Government", HE:"Bills Parl.", LAUSUNNOT:"Consultations", EIT:"ECHR HUDOC", EUT:"CJEU", HO:"Appeal Cts", VakO:"Insur. Ct"};
+const SRC_LABEL_SV = {TT:"Arbetsdomst.", MAO:"Marknadsdomst", VN:"Statsrådet", HE:"RP riksdagen", LAUSUNNOT:"Remisser", EIT:"EMD HUDOC", EUT:"EU-domstolen", HO:"Hovrätterna", VakO:"FörsäkrD"};
 const srcLabel = k => (LANG === "en" && SRC_LABEL_EN[k]) || (LANG === "sv" && SRC_LABEL_SV[k]) || SRC_LABEL[k] || k;
 function buildStatus() {
   const top = bandTop(S("TILA", "STATUS"), S("Lähteet, ajot ja arkisto", "Källor, körningar och arkiv"), "w", "k", "b");

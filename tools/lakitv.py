@@ -141,10 +141,11 @@ def fetch(url, ua=UA, timeout=30, tries=2, accept="*/*"):
             if e.code == 403:  # osa palvelimista (esim. HUDOC) torjuu Pythonin mutta ei curlia
                 try:
                     r = subprocess.run(["curl", "-sfL", "--compressed", "--proto", "=http,https", "--proto-redir", "=https", "--max-redirs", "3", "--max-filesize", str(MAX_FETCH), "-m", str(timeout),
-                                        "-A", BROWSER_UA, "-H", f"Accept: {accept}", "-w", "\n\x00%{url_effective}\x00%{content_type}", url], capture_output=True, timeout=timeout + 5, check=False)
+                                        "-A", BROWSER_UA, "-H", f"Accept: {accept}", "-w", "\n@@LAKITV@@%{url_effective}@@%{content_type}", url], capture_output=True, timeout=timeout + 5, check=False)
+                    # (erotin ei saa olla NUL-tavu: subprocess ei hyväksy sitä argumentissa, jolloin varamenettely ei koskaan käynnistynyt)
                     if r.returncode == 0 and r.stdout:
-                        body, _, tail = r.stdout.rpartition(b"\n\x00")
-                        eff, _, ct = tail.partition(b"\x00")
+                        body, _, tail = r.stdout.rpartition(b"\n@@LAKITV@@")
+                        eff, _, ct = tail.partition(b"@@")
                         check_url(eff.decode("ascii", "replace"))   # curl seurasi ohjauksia: kohde tarkistetaan jälkikäteen
                         _CTYPE[url] = ct.decode("ascii", "replace")
                         return body
@@ -923,19 +924,264 @@ def src_edpb():
     return dedupe(out)
 
 
+
+# ---------------------------------------------------------------- Finlex, eduskunta ja Hankeikkuna (avoimet rajapinnat)
+# oikeuskansleri.fi, oikeusasiamies.fi, tietosuoja.fi, valtioneuvosto.fi ja ministeriöiden sivut sekä lausuntopalvelu.fi torjuvat
+# automaattiset haut (Cloudflaren selaintarkistus; myös WebFetch epäonnistuu). Siksi laillisuusvalvonnan ratkaisut luetaan
+# Finlexistä, hallituksen esitykset eduskunnan avoimesta datasta ja lausuntokierrokset valtioneuvoston Hankeikkunan rajapinnasta.
+# Lukijalle näytettävä lähde on silti virallinen sivu; text- ja check_source-komennot lukevat sen sisällön rajapinnasta.
+BLOCKED_HOSTS = ("oikeuskansleri.fi", "oikeusasiamies.fi", "tietosuoja.fi", "valtioneuvosto.fi", "lausuntopalvelu.fi", "oikeusministerio.fi",
+                 "vnk.fi", "um.fi", "intermin.fi", "defmin.fi", "vm.fi", "okm.fi", "mmm.fi", "lvm.fi", "tem.fi", "stm.fi", "ym.fi")
+SCAN_CTX = {}   # cmd_scan asettaa "data": lähteet voivat jatkaa edellisen ajon kohdasta (eduskunnan avoin data)
+FINLEX_NOISE = re.compile(r"^(404: This page|This page could not|Siirry sisältöön|Sivun alkuun|Finlex on oikeusministeriön|Finlexin sisältö|"
+                          r"Hallituksen esitysten tekstit|Valtioneuvoston oikeuskanslerin ja apulais|Eduskunnan oikeusasiamiehen ja apulais|"
+                          r"Hae kaikista|Suomeksi$|På svenska$|In English$|Valikko$|Hae$|Etusivu$|Lainsäädäntö$|Oikeuskäytäntö$|Viranomaiset$|"
+                          r"Valtiosopimukset$|Hallituksen esitykset$|Avoin data$)")
+
+
+def blocked_host(u):
+    h = (urllib.parse.urlsplit(u or "").hostname or "").lower()
+    return any(h == b or h.endswith("." + b) for b in BLOCKED_HOSTS)
+
+
+FINLEX_TAIL = re.compile(r"^(Voit antaa Finlex-palvelua|Palaa \"|Hakemaasi dokumenttia|selaa sisältöjä|Uusimmat julkaistut|10 Finlexin haetuinta|Tietoa Finlexistä|Saavutettavuusseloste|Tietosuoja$)")
+
+
+def finlex_doc_text(h, title=""):
+    """Finlexin sivun oma sisältö: alkaa dokumentin ensimmäisestä sisältöotsikosta (esim. ESITYKSEN PÄÄASIALLINEN SISÄLTÖ) tai
+    sivun otsikosta ja päättyy alatunnisteeseen. Palauttaa tyhjän, jos sisältöä ei löydy (viranomaisratkaisu on silloin PDF-liitteenä)."""
+    lines = [l for l in finlex_rsc_text(h).split("\n") if not FINLEX_TAIL.match(l) and l not in ("404", "Finlex")]
+    starts = [i for i, l in enumerate(lines) if l.startswith("ESITYKSEN PÄÄASIALLINEN SISÄLTÖ") or (title and l == title)]
+    if not starts:
+        return ""
+    body = lines[starts[0]:]
+    # sisällysluettelo toistuu ennen varsinaista tekstiä: aloitetaan toisesta esiintymästä, jos sellainen on
+    again = [i for i, l in enumerate(body[1:], 1) if l == body[0]]
+    if again:
+        body = body[again[0]:]
+    return "\n".join(body)
+
+
+def finlex_rsc_text(h):
+    """Finlexin (Next.js) sivun teksti React-palvelinkomponenttien kuormasta: HTML:ssä on vain navigointi."""
+    out, prev = [], None
+    for chunk in re.findall(r'self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)', h, flags=re.S):
+        try:
+            s = json.loads('"' + chunk + '"')
+        except ValueError:
+            continue
+        for m in re.finditer(r'"children":(\[(?:"(?:[^"\\]|\\.)*"(?:,\s*)?)+\]|"(?:[^"\\]|\\.)*")', s):
+            try:
+                t = json.loads(m.group(1))
+            except ValueError:
+                continue
+            for x in (t if isinstance(t, list) else [t]):
+                x = " ".join(str(x).split())
+                if len(x) > 1 and not x.startswith("$") and not FINLEX_NOISE.match(x) and x != prev:
+                    out.append(x); prev = x
+    return "\n".join(out)
+
+
+def finlex_pdf_link(h):
+    m = re.search(r'/api/media/[^"\\\s<>]+?\.(?:pdf|PDF)(?:\?[^"\\\s<>]*)?', h)
+    return ("https://www.finlex.fi" + html.unescape(m.group(0)).replace("\\u0026", "&")) if m else None
+
+
+def src_finlex_auth(kanava, slug, prefix=""):
+    """Finlexin viranomaisosio (valtioneuvoston oikeuskansleri, eduskunnan oikeusasiamies): päivä, diaarinumero ja otsikko listasta.
+    Muille annetut lausunnot ja tarkastukset ohitetaan rutiinina, kuten viranomaisten omilla sivuilla."""
+    base = f"https://www.finlex.fi/fi/viranomaiset/{slug}"
+    h = get_text(base)
+    out = []
+    for m in re.finditer(r'<a aria-label="([^"]*)"[^>]*href="(/fi/viranomaiset/%s/20\d\d/\d+)"' % re.escape(slug), h):
+        lab = html.unescape(" ".join(m.group(1).split()))
+        mm = re.match(r"(\d{1,2}\.\d{1,2}\.\d{4})\s+([^,]+),\s*(.+)$", lab)
+        if not mm:
+            continue
+        pvm, tunnus, title = mm.groups()
+        if re.match(r"(?i)^(lausunto|kannanotto|tarkastus)", title):
+            continue
+        if prefix and not tunnus.upper().startswith(prefix.split("/")[0].upper()):
+            tunnus = prefix + tunnus
+        out.append({"kanava": kanava, "url": "https://www.finlex.fi" + m.group(2), "otsikko": title, "tunnus": tunnus,
+                    "julkaistu": fi_date(pvm), "valmis": True})
+    return dedupe(out)
+
+
+VASKI_ROWS = "https://avoindata.eduskunta.fi/api/v1/tables/VaskiData/rows"
+VASKI_BATCH = "https://avoindata.eduskunta.fi/api/v1/tables/VaskiData/batch"
+VASKI_ID_FLOOR = 351000   # lokakuu 2026; ensimmäinen ajo lukee tästä eteenpäin, seuraavat data.jsonin _vaski_id-kohdasta
+
+
+def he_paragraphs(x):
+    """HE:n XML -> (nimeke, [pääasiallisen sisällön kappaleet], [koko tekstin rivit])."""
+    nm = re.search(r"<[\w:]*NimekeTeksti[^>]*>(.*?)</", x, re.S)
+    m = re.search(r"<[\w:]*SisaltoKuvaus\b[^>]*>(.*?)</[\w:]*SisaltoKuvaus>", x, re.S)
+    summary = [clean(t) for t in re.findall(r"<[\w:]*KappaleKooste\b[^>]*>(.*?)</[\w:]*KappaleKooste>", m.group(1) if m else "", re.S) if clean(t)]
+    lines = [clean(t) for _, t in re.findall(r"<[\w:]*(OtsikkoTeksti|KappaleKooste|SaadosNimeke|PykalaTunnus)\b[^>]*>(.*?)</", x, re.S) if clean(t)]
+    return (clean(nm.group(1)) if nm else ""), summary, lines
+
+
+def _is_he_doc(r):
+    x = r.get("XmlData") or ""
+    return (r.get("Eduskuntatunnus") or "").startswith("HE ") and "AsiakirjatyyppiKoodi>HE<" in x and "KasittelytiedotValtiopaivaasia" not in x
+
+
+def src_eduskunta_he():
+    """Uudet hallituksen esitykset eduskunnan avoimesta datasta (VaskiData) edellisen ajon kohdasta eteenpäin."""
+    d = SCAN_CTX.get("data") or {}
+    start = int(d.get("_vaski_id") or VASKI_ID_FLOOR)
+    have = {it.get("tunnus") for it in (d.get("kanavat") or {}).get("he", [])} | {r.get("he") for r in d.get("he_tila", [])}
+    best, pages, last = {}, 0, start
+    while pages < 60:
+        data = json.loads(get_text(f"{VASKI_BATCH}?pkName=Id&pkStartValue={last}&perPage=20", timeout=120))
+        rows = [dict(zip(data["columnNames"], r)) for r in data.get("rowData") or []]
+        if not rows:
+            break
+        pages += 1
+        for r in rows:
+            last = max(last, int(r["Id"]))
+            t = r.get("Eduskuntatunnus") or ""
+            if _is_he_doc(r) and (t not in best or len(r["XmlData"]) > len(best[t]["XmlData"])):
+                best[t] = r
+        if not data.get("hasMore"):
+            break
+    SCAN_CTX["vaski_id"] = max(start, last - 400)   # päällekkäisyys (n. 5 pv) varmistaa, ettei esitys jää väliin
+    out = []
+    for t, r in best.items():
+        m = re.match(r"HE (\d+)/(\d{4}) vp$", t)
+        if not m or t in have:
+            continue
+        nimi, summary, _ = he_paragraphs(r["XmlData"])
+        lp = re.search(r"<[\w:]*LaadintaPvm[^>]*>(\d{1,2}\.\d{1,2}\.\d{4})</", r["XmlData"])
+        voim = next((p for p in summary if re.search(r"tulemaan voimaan|tulisivat voimaan|tulisi voimaan|voimaantulo", p, re.I)), None)
+        out.append({"kanava": "he", "url": f"https://www.eduskunta.fi/valtiopaivaasiakirjat/HE+{m.group(1)}/{m.group(2)}", "tunnus": t,
+                    "otsikko": nimi or t, "julkaistu": to_hki(r.get("Created") or ""), "annettu": fi_date(lp.group(1)) if lp else None,
+                    "kuvaus": " ".join(summary)[:700], "voimaantulo": voim, "valmis": True})
+    out.sort(key=lambda x: x.get("julkaistu") or "", reverse=True)
+    return out
+
+
+def he_text(n, year, url, maxc):
+    """HE:n teksti eduskunnan avoimesta datasta (eduskunta.fi:n sivu rakentuu selaimessa, eikä sitä voi lukea skriptillä)."""
+    q = VASKI_ROWS + "?" + urllib.parse.urlencode({"columnName": "Eduskuntatunnus", "columnValue": f"HE {n}/{year} vp", "perPage": 20})
+    data = json.loads(get_text(q, timeout=90))
+    rows = [r for r in (dict(zip(data["columnNames"], r)) for r in data.get("rowData") or []) if _is_he_doc(r)]
+    if not rows:
+        raise ValueError(f"HE {n}/{year} vp ei löydy eduskunnan avoimesta datasta")
+    r = max(rows, key=lambda r: len(r["XmlData"]))
+    nimi, summary, lines = he_paragraphs(r["XmlData"])
+    t = "\n".join(lines)
+    return {"url": url, "otsikko": nimi, "julkaistu": to_hki(r.get("Created") or ""), "tunnus": f"HE {n}/{year} vp",
+            "paaasiallinen_sisalto": " ".join(summary), "teksti": t[:maxc] + (f"\n[… katkaistu, yhteensä {len(t)} merkkiä]" if len(t) > maxc else "")}
+
+
+HANKE_API = "https://api.hankeikkuna.fi/api/v2"
+_ASETTAJAT = None
+
+
+def post_json(url, body, timeout=60):
+    check_url(url)
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST",
+                                 headers={"User-Agent": UA, "Content-Type": "application/json", "Accept": "application/json"})
+    with _OPENER.open(req, timeout=timeout) as r:
+        b = r.read(MAX_FETCH + 1)
+    if len(b) > MAX_FETCH:
+        raise TooBig(f"vastaus yli {MAX_FETCH // 1024 // 1024} Mt")
+    return json.loads(b.decode("utf-8", "replace"))
+
+
+def asettaja_nimi(uuid):
+    global _ASETTAJAT
+    if _ASETTAJAT is None:
+        try:
+            a = json.loads(get_text(HANKE_API + "/asettajat", timeout=40))
+            _ASETTAJAT = {x["uuid"]: x for x in (a.get("result") if isinstance(a, dict) else a) if x.get("uuid")}
+        except Exception:
+            _ASETTAJAT = {}
+    nimi = (_ASETTAJAT.get(uuid) or {}).get("nimi") or {}
+    return {k: (nimi.get(k) or "") for k in ("fi", "sv", "en")}
+
+
+def _hanke_item(r, since=None):
+    k = r.get("kohde") or {}
+    et = [e for e in r.get("etapit") or [] if e.get("tyyppi") == "LAUSUNTOKIERROS" and e.get("alku") and (since is None or e["alku"] >= since)]
+    if not et or not k.get("tunnus"):
+        return None
+    e = max(et, key=lambda e: e.get("alku") or "")
+    docs = [a for a in r.get("asiakirjat") or [] if a.get("tyyppi") == "LAUSUNTOPYYNTO" and a.get("url")]
+    # Lausuntopyyntökirje: PDF ensin (suomenkielinen nimi ennen ruotsinkielistä), sitten .docx; Outlook-viestiä (.msg) ei lueta
+    SV = re.compile(r"\b(statsrådets|regeringens|förordning|lag|om|av|och|för|till|utkast|remiss)\b", re.I)
+    doc_name = lambda a: (a.get("nimi") or {}).get("fi") if isinstance(a.get("nimi"), dict) else str(a.get("nimi") or "")
+    rank = lambda a: (0 if a["url"].lower().endswith(".pdf") else 1 if a["url"].lower().endswith(".docx") else 9,
+                      1 if len(SV.findall(doc_name(a) or "")) >= 2 else 0)   # ruotsinkielinen versio viimeiseksi
+    docs = sorted((a for a in docs if not a["url"].lower().endswith((".msg", ".doc", ".xlsx", ".xls", ".zip"))), key=rank)
+    nimi, kuvaus, elin = k.get("nimi") or {}, k.get("kuvaus") or {}, asettaja_nimi(k.get("asettajaUuid"))
+    return {"kanava": "lausunnot", "url": f"https://valtioneuvosto.fi/hanke?tunnus={k['tunnus']}", "tunnus": k["tunnus"],
+            "otsikko": nimi.get("fi") or "", "otsikko_sv": nimi.get("sv") or "", "otsikko_en": nimi.get("en") or "",
+            "julkaistu": e.get("alku"), "maaraaika": e.get("loppu"), "elin": elin["fi"], "elin_sv": elin["sv"], "elin_en": elin["en"],
+            "kuvaus": (kuvaus.get("fi") or "")[:700], "asianumero": (k.get("asianumerot") or [None])[0],
+            "lausuntopyynto_pdf": docs[0]["url"] if docs else None, "valmis": True}
+
+
+def src_hankeikkuna(days=14):
+    """Lausuntokierrokset (lait ja asetukset) valtioneuvoston Hankeikkunan avoimesta rajapinnasta: alku, määräaika, ministeriö."""
+    since = days_ago(days)
+    res = post_json(HANKE_API + "/kohteet/haku", {"tyyppi": ["LAINSAADANTO"], "etappiTyyppi": ["LAUSUNTOKIERROS"],
+                                                   "etappiAlkamisPaivaAlku": since, "size": 100})
+    out = [x for x in (_hanke_item(r, since) for r in res.get("result") or []) if x]
+    out.sort(key=lambda x: x.get("julkaistu") or "", reverse=True)
+    return out
+
+
+def hanke_text(tunnus, url, maxc):
+    """Hankkeen kuvaus, lausuntokierros ja lausuntopyyntökirjeen teksti Hankeikkunan rajapinnasta."""
+    res = post_json(HANKE_API + "/kohteet/haku", {"tunnus": [tunnus], "size": 5})
+    rows = [r for r in res.get("result") or [] if ((r.get("kohde") or {}).get("tunnus") or "").lower() == tunnus.lower()]
+    if not rows:
+        raise ValueError(f"hanketta {tunnus} ei löydy Hankeikkunasta")
+    r = rows[0]
+    x = _hanke_item(r) or {"otsikko": ((r["kohde"].get("nimi") or {}).get("fi") or ""), "kuvaus": ((r["kohde"].get("kuvaus") or {}).get("fi") or "")}
+    k = r["kohde"]
+    parts = [x.get("otsikko") or "", x.get("kuvaus") or "", (k.get("vaikutukset") or {}).get("fi") or ""]
+    if x.get("maaraaika"):
+        parts.append(f"Lausuntokierros {x.get('julkaistu')} – {x['maaraaika']}.")
+    pdf = x.get("lausuntopyynto_pdf")
+    if pdf:
+        try:
+            parts.append(_text(pdf, maxc)["teksti"])
+        except Exception as e:
+            parts.append(f"[lausuntopyyntökirjettä ei saatu luettua: {str(e)[:60]}]")
+    t = "\n".join(p for p in parts if p)
+    return {"url": url, "otsikko": x.get("otsikko"), "julkaistu": x.get("julkaistu"), "maaraaika": x.get("maaraaika"), "elin": x.get("elin"),
+            "lausuntopyynto_pdf": pdf, "teksti": t[:maxc] + (f"\n[… katkaistu, yhteensä {len(t)} merkkiä]" if len(t) > maxc else "")}
+
+
+def api_url_for(url):
+    """Osoitteet, joiden sisältö luetaan rajapinnasta: (tyyppi, tunnistetiedot) tai None."""
+    m = re.match(r"https://www\.eduskunta\.fi/valtiopaivaasiakirjat/HE\+(\d+)/(\d{4})$", url or "") or \
+        re.search(r"eduskunta\.fi/.*?HE(?:%20|\+| )(\d+)(?:%2F|/)(\d{4})", url or "")
+    if m:
+        return ("he", int(m.group(1)), int(m.group(2)))
+    m = re.match(r"https://valtioneuvosto\.fi/hanke\?tunnus=([^&#]+)", url or "")
+    if m:
+        return ("hanke", urllib.parse.unquote(m.group(1)))
+    return None
+
+
 SOURCES = {
     "KKO": src_kko,
     "KHO": src_kho,
-    "OKV": lambda: src_liferay("laillisuus", "https://oikeuskansleri.fi/ratkaisut", "oikeuskansleri.fi"),
-    "EOA": lambda: src_liferay("laillisuus", "https://oikeusasiamies.fi/ratkaisut", "oikeusasiamies.fi"),
+    "OKV": lambda: src_finlex_auth("laillisuus", "oikeuskansleri"),              # oikeuskansleri.fi torjuu haut -> Finlex
+    "EOA": lambda: src_finlex_auth("laillisuus", "eduskunnan-oikeusasiamies", "EOAK/"),   # oikeusasiamies.fi torjuu haut -> Finlex
     "KKV": src_kkv,
-    "TSV": lambda: src_liferay("tsv", "https://tietosuoja.fi/ajankohtaista", "tietosuoja.fi", skip=r"^$"),
     "TSV-Finlex": src_finlex_tsv,
     "TT": lambda: src_archive("muut", "https://www.tyotuomioistuin.fi/ratkaisut/", r"/ratkaisujen-arkisto/[^/]+/$"),
     "MAO": lambda: src_archive("muut", "https://www.markkinaoikeus.fi/ratkaisut/", r"/ratkaisujen-arkisto/mao[^/]+/$"),
     "HAO": lambda: src_archive("hao", "https://www.tuomioistuimet.fi/tuomioistuinten-ratkaisut/hallinto-oikeuksien-ratkaisut/",
                                r"/ratkaisut/[a-z-]+-hao-[^/]+/$"),
-    "VN": src_vn,
+    "HE": src_eduskunta_he,        # valtioneuvosto.fi torjuu haut -> eduskunnan avoin data (kaikki annetut esitykset)
+    "LAUSUNNOT": src_hankeikkuna,  # lausuntokierrokset Hankeikkunan rajapinnasta (lausuntopalvelu.fi torjuu haut)
     "FIVA": src_fiva,
     "ICJ": src_icj,
     "EIT": src_hudoc,
@@ -946,7 +1192,8 @@ SOURCES = {
                                        r"^VakO \d+:20\d\d$"),
     "EDPB": src_edpb,
 }
-PER_SOURCE = {"HAO": 10, "VN": 20, "TT": 6, "MAO": 6, "EIT": 10, "ICJ": 8, "EUT": 40, "HO": 8, "VakO": 8, "EDPB": 10}
+SOURCE_BASE = {"OKV": "finlex", "EOA": "finlex"}   # lähteen perusta vaihtui: linkkimäärän historia aloitetaan alusta (ei väärää HILJAA-hälytystä)
+PER_SOURCE = {"HAO": 10, "HE": 20, "LAUSUNNOT": 20, "TT": 6, "MAO": 6, "EIT": 10, "ICJ": 8, "EUT": 40, "HO": 8, "VakO": 8, "EDPB": 10}
 
 
 def cmd_scan(p, hours=None, include_seen=False):
@@ -960,6 +1207,9 @@ def cmd_scan(p, hours=None, include_seen=False):
     seen = set(d.get("_nahty") or [])
     found, errors = [], {}
     stats = d.setdefault("_lahteet", {})   # lähdevahti: linkkimäärä ja viimeisin onnistuminen lähteittäin
+    for k in [k for k in stats if k not in SOURCES]:   # poistuneet lähteet (esim. tietosuoja.fi, VN) eivät jää tilasivulle VANHA-merkinnällä
+        del stats[k]
+    SCAN_CTX["data"] = d
     quiet = []
 
     def run(name):
@@ -972,6 +1222,9 @@ def cmd_scan(p, hours=None, include_seen=False):
     todo = []
     for name, lst, err in results:
         st = stats.setdefault(name, {"hist": []})
+        if SOURCE_BASE.get(name) and st.get("perusta") != SOURCE_BASE[name]:
+            st["hist"], st["perusta"] = [], SOURCE_BASE[name]
+            st.pop("hiljaa", None)
         if err:
             errors[name] = err
             st["virhe"] = f"{now():%Y-%m-%dT%H:%M} {err[:60]}"
@@ -992,8 +1245,8 @@ def cmd_scan(p, hours=None, include_seen=False):
             todo.append(x)
 
     def enrich(x):
-        if x["url"].endswith(".pdf") or "hudoc" in x["url"] or "curia.europa.eu" in x["url"]:
-            return x
+        if x.get("valmis") or x["url"].endswith(".pdf") or "hudoc" in x["url"] or "curia.europa.eu" in x["url"] or blocked_host(x["url"]):
+            return x   # rajapinnasta saadut tiedot ovat valmiit; torjuvia palvelimia ei yritetä lukea
         try:
             m = page_meta(x["url"])
             x["otsikko"] = (m["otsikko"] or x.get("otsikko") or "").split(" | ")[0]
@@ -1013,6 +1266,8 @@ def cmd_scan(p, hours=None, include_seen=False):
     cand.sort(key=lambda x: x.get("julkaistu") or "", reverse=True)
     # tarkistetut linkit merkitään nähdyiksi vasta julkaisussa (stamp): jos ajo kaatuu, ne tulevat uudelleen ehdolle
     d["_nahty_odottaa"] = sorted({url_hash(x["url"]) for x in todo if url_hash(x["url"]) not in seen})
+    if SCAN_CTX.get("vaski_id"):
+        d["_vaski_id"] = SCAN_CTX["vaski_id"]   # eduskunnan avoin data: seuraava ajo jatkaa tästä (päällekkäisyydellä)
     save(p, d)
     write_text("ehdokkaat.json", json.dumps({"since": since.strftime("%Y-%m-%dT%H:%M"), "virheet": errors, "ehdokkaat": cand}, ensure_ascii=False, indent=1))
     print(f"Tarkistettu {len(todo)} uutta linkkiä {len(SOURCES)} lähteestä; ehdokkaita {len(cand)} (julkaistu {since:%d.%m. %H.%M} jälkeen).")
@@ -1021,7 +1276,7 @@ def cmd_scan(p, hours=None, include_seen=False):
     if errors:
         print("Lähteet, jotka eivät vastanneet (tarkista tarvittaessa WebSearchilla):", ", ".join(f"{k} ({v})" for k, v in errors.items()))
     if quiet:
-        print("LÄHDE HILJAA (sivun rakenne on ehkä muuttunut; tarkista lähde WebFetchillä ja lisää jutut käsin):", "; ".join(quiet))
+        print("LÄHDE HILJAA (sivun rakenne on ehkä muuttunut; tarkista lähde WebSearchilla ja lisää jutut käsin):", "; ".join(quiet))
 
 
 def main_text(h):
@@ -1041,15 +1296,38 @@ def cmd_text(url, maxc=6000):
     try:
         print(json.dumps(_text(url, maxc), ensure_ascii=False, indent=1))
     except Exception as e:
-        print(json.dumps({"url": url, "virhe": f"{type(e).__name__}: {str(e)[:80]}",
-                          "ohje": "Palvelin ei päästänyt skriptiä sisään. Lue sivu WebFetch-työkalulla."}, ensure_ascii=False))
+        ohje = ("Palvelin torjuu kaikki automaattiset haut (myös WebFetchin). Käytä samaa asiaa Finlexissä, eduskunnan avoimessa datassa "
+                "(eduskunta.fi/valtiopaivaasiakirjat/HE+n/vvvv) tai Hankeikkunassa (valtioneuvosto.fi/hanke?tunnus=…), tai WebSearchia."
+                if blocked_host(url) else "Palvelin ei päästänyt skriptiä sisään. Lue sivu WebFetch-työkalulla.")
+        print(json.dumps({"url": url, "virhe": f"{type(e).__name__}: {str(e)[:80]}", "ohje": ohje}, ensure_ascii=False))
+
+
+def docx_text(b):
+    """Word-asiakirjan (.docx) kappaleet ilman lisäkirjastoja: word/document.xml -> teksti."""
+    import zipfile, io
+    with zipfile.ZipFile(io.BytesIO(b)) as z:
+        x = z.read("word/document.xml").decode("utf-8", "replace")
+    paras = re.findall(r"<w:p[ >].*?</w:p>", x, flags=re.S)
+    out = [html.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<w:tab/>", "\t", p))) for p in paras]
+    return "\n".join(l for l in (o.strip() for o in out) if l)
 
 
 def _text(url, maxc):
+    api = api_url_for(url)
+    if api and api[0] == "he":
+        return he_text(api[1], api[2], url, maxc)
+    if api and api[0] == "hanke":
+        return hanke_text(api[1], url, maxc)
+    if blocked_host(url):
+        raise ValueError("palvelin torjuu automaattiset haut (Cloudflare); käytä Finlexin, eduskunnan tai Hankeikkunan osoitetta")
     out = {"url": url}
     ua = BROWSER_UA if "hudoc" in url else UA
     b = fetch(url, ua=ua)
-    if b[:5] == b"%PDF-" or url.lower().endswith(".pdf"):
+    if b[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":   # OLE-tiedosto (.msg, .doc): ei luettavaa tekstiä ilman lisäkirjastoja
+        raise ValueError("liite on Outlook- tai Word 97 -tiedosto (.msg/.doc), jota ei lueta")
+    if b[:4] == b"PK\x03\x04" and (url.lower().endswith(".docx") or b"word/document.xml" in b):
+        out["teksti"] = docx_text(b)
+    elif b[:5] == b"%PDF-" or url.lower().endswith(".pdf"):
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
             f.write(b)
         try:
@@ -1063,6 +1341,18 @@ def _text(url, maxc):
         except Exception:
             pass
         out["teksti"] = main_text(h)
+        if "finlex.fi" in (urllib.parse.urlsplit(url).hostname or "") and len(out["teksti"]) < 1500:
+            # Finlexin sivut rakentuvat React-kuormasta; viranomaisratkaisut ovat yleensä vain PDF-liitteenä
+            title = (out.get("otsikko") or "").split(" | ")[0].strip()
+            doc, pdf = finlex_doc_text(h, title), finlex_pdf_link(h)
+            if doc:
+                out["teksti"] = doc
+            if pdf and len(doc) < 4000:   # ratkaisun koko teksti on PDF-liitteessä; sivulla on enintään tiivistelmä ja asiasanat
+                out["pdf"] = pdf
+                try:
+                    out["teksti"] = (doc + "\n\n[PDF-liite]\n" if doc else "") + _text(pdf, maxc)["teksti"]
+                except Exception as e:
+                    out["teksti"] = doc + f"\n[PDF-liitettä ei saatu luettua: {str(e)[:60]}]"
     t = out["teksti"]
     out["teksti"] = t[:maxc] + (f"\n[… katkaistu, yhteensä {len(t)} merkkiä]" if len(t) > maxc else "")
     return out
@@ -1072,6 +1362,10 @@ def _text(url, maxc):
 def check_source(x):
     """Lähde vastaa, ja 'virallinen tiivistelmä' löytyy lähteestä sanatarkasti (ensimmäiset 12 sanaa)."""
     u = x.get("lahde") or ""
+    if blocked_host(u) and not api_url_for(u):
+        print(f"HUOM: {x.get('id')}: lähde {urllib.parse.urlsplit(u).hostname} torjuu automaattiset haut, joten osoitetta ei voitu tarkistaa. "
+              f"Käytä mieluummin Finlexin osoitetta (oikeuskansleri, oikeusasiamies, tietosuojavaltuutettu) tai eduskunnan/Hankeikkunan osoitetta.")
+        return True
     try:
         if u.lower().endswith(".pdf"):
             fetch(u, timeout=40); txt = ""   # PDF: riittää, että lähde vastaa

@@ -1,8 +1,11 @@
 # Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """Käy läpi kaikki sivut 100–899 ja kaikki alasivut: rivimäärä, rivileveys, linkit, pikanäppäimet."""
 import json, sys
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # varaston juuri
+_FONTS = _os.path.join(_ROOT, 'fonts') if _os.path.isdir(_os.path.join(_ROOT, 'fonts')) else _os.path.join(_ROOT, '..', 'fonts')
 from playwright.sync_api import sync_playwright
-URL = "file:///tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/test/fixture.html"
+URL = "file://" + _ROOT + "/test/fixture.html"
 JS = r"""
 (lang) => {
   const L = window.LAKITV, out = {chars:{}, errors:[], pages:0, subs:0, fillers:0, deadLinks:{}, longFt:[], badRows:[], overflow:[]};
@@ -57,7 +60,7 @@ with sync_playwright() as p:
     res = pg.evaluate(JS, sys.argv[1] if len(sys.argv) > 1 else "fi")
     res["jsErrors"] = errs
     from fontTools.ttLib import TTFont
-    cm = TTFont("/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/fonts/lakicaps-sub.woff2").getBestCmap()
+    cm = TTFont(_FONTS + "/lakicaps-sub.woff2").getBestCmap()
     missing = {c: n for c, n in res.pop("chars").items() if ord(c) not in cm}
     res["missingGlyphs"] = missing
     print(json.dumps({k: (v if k not in ("badRows", "overlaps") else v[:25]) for k, v in res.items()}, ensure_ascii=False, indent=1))

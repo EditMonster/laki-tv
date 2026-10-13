@@ -28,7 +28,7 @@
 
 Jokaisella jutulla on virallinen tiivistelmä tai neutraali referaatti, selkokielinen versio, aiheet ja linkki viralliseen lähteeseen. Lukija voi **seurata asiaa** (HE:n käsittelyvaihe, EIT-jutun vaihe, lausuntoajan määräaika) ja **lisätä määräajan kalenteriinsa** itse – Google, Outlook, .ics tai tilattava kalenteriosoite. Mitään ei lisätä automaattisesti.
 
-Sivu ei kerää lukijoista mitään: ei evästeitä, ei tunnisteita, ei analytiikkaa, ei yhteyksiä kolmansiin palveluihin. Omat aiheet ja seurannat tallentuvat vain lukijan selaimeen.
+Sivu ei kerää lukijoista mitään: ei evästeitä, ei tunnisteita, ei analytiikkaa, ei kolmansien osapuolten palveluita (sivusto hakee vain omat juttunsa GitHubista, jossa se myös sijaitsee). Omat aiheet ja seurannat tallentuvat vain lukijan selaimeen.
 
 ## Miten se toimii
 
@@ -41,12 +41,13 @@ lähteet (KKO, KHO, Finlex, eduskunta, curia, HUDOC, …)
         └──feed──▶  feed.xml · feed-sv.xml · feed-en.xml · feed.json · lakitv.md · kalenteri.txt
         └──viikkokatsaus──▶  viikkokatsaus.html / .pdf  (maanantaisin)
         └──digest --muoto slack|teams ──▶ post  (ylläpitäjän webhook)
-        └──ghpush (vain data.json)──▶  gist ──Actions hakee tunneittain: validate + build + feed + website──▶  verkkosivusto (GitHub Pages)
+        └──ghpush (vain data.json)──▶  gist ──Actions hakee 2×/h: validate + build + feed + website──▶  verkkosivusto (GitHub Pages)
+                                                   └──────── sivu hakee uusimman data.jsonin itse ───────────▶  (ajan tasalla, vaikka Actions olisi myöhässä)
 ```
 
 * **Sivu** on yksi HTML-tiedosto ilman riippuvuuksia. Teksti-TV-moottori piirtää 40×25 merkin sivut datasta selaimessa; kaikki sivut (myös kalenteri, viikon tärkeimmät ja aiheet) lasketaan datasta ajon aikana.
 * **Työkalu** `tools/lakitv.py` (Python 3.10+, vain `lxml` lisäksi) tekee kaiken datan käsittelyn: lähteiden skannauksen, lisäyksen, tarkistuksen (`validate`), arkistoinnin, eduskunnan ja Finlexin avoimen datan päivitykset, syötteet ja koosteet.
-* **Verkkosivusto** on sama sivu julkisessa osoitteessa: `tools/website.py` lisää hakukone- ja jakotiedot (Open Graph -kuva on sivu 100), PWA-manifestin ja service workerin (toimii ilman yhteyttä), oikean `.ics`-kalenterin, RSS-vaihtoehdot, `robots.txt`:n ja sivukartan. `.github/workflows/pages.yml` rakentaa sen tämän varaston koodista ja julkaisee GitHub Pagesiin. Päivitysajo ei koske koodivarastoon lainkaan: se työntää vain `data.json`-tiedoston erilliseen datavarastoon – GitHub-gistiin – (`tools/ghpush.py`, avain rajattu vain gisteihin), josta työnkulku hakee datan tunneittain, tarkistaa sen (`validate`) ja julkaisee vain, jos data on uudempi kuin sivustolla. Pystytys: `docs/JULKAISU.md`.
+* **Verkkosivusto** on sama sivu julkisessa osoitteessa: `tools/website.py` lisää hakukone- ja jakotiedot (Open Graph -kuva on sivu 100), PWA-manifestin ja service workerin (toimii ilman yhteyttä), oikean `.ics`-kalenterin, RSS-vaihtoehdot, `robots.txt`:n ja sivukartan. `.github/workflows/pages.yml` rakentaa sen tämän varaston koodista ja julkaisee GitHub Pagesiin. Päivitysajo ei koske koodivarastoon lainkaan: se työntää vain `data.json`-tiedoston erilliseen datavarastoon – GitHub-gistiin – (`tools/ghpush.py`, avain rajattu vain gisteihin), josta työnkulku hakee datan kaksi kertaa tunnissa, tarkistaa sen (`validate`) ja julkaisee vain, jos data on uudempi kuin sivustolla. Lisäksi julkaistu sivu hakee itse gistin uusimman `data.json`-tiedoston ja näyttää sen, jos se on uudempi kuin sivuston kopio – GitHub viivästää ajastettuja ajoja, eikä lukijan tarvitse odottaa niitä. Pystytys: `docs/JULKAISU.md`.
 * **Päivitys** on agentin ajo, jonka ohje on `trigger_prompt.txt`: agentti ajaa työkalun komennot, valitsee juridisesti merkittävät uutuudet, kirjoittaa tiivistelmät ja käännökset, ja julkaisee. Työkalu tarkistaa koneellisesti, ettei agentti keksi mitään: lähteen on vastattava, virallisen tiivistelmän on löydyttävä lähteestä sanatarkasti, ja selkoversion luvut on löydyttävä tekstistä.
 
 ## Käyttö

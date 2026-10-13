@@ -14,7 +14,7 @@ Tavat:
        rajaa api.github.com-pyynnöt; tarkoitettu tavalliseen ympäristöön.
   auto git, jos git-ohjelma löytyy; muuten api.
 
-Kohde voi olla tavallinen varasto (omistaja/varasto) tai gist (gist:TUNNUS, osoite https://gist.github.com/TUNNUS.git).
+Kohde voi olla tavallinen varasto (omistaja/varasto) tai gist (gist:TUNNUS tai omistaja/TUNNUS, osoite https://gist.github.com/…/TUNNUS.git).
 Claude-istunnon git-välityspalvelin estää työnnöt varastoihin, joita istuntoon ei ole liitetty, mutta gist.github.com
 kulkee sen ohi, joten päivitysajo käyttää gistiä. Haara tunnistetaan automaattisesti (--branch auto).
 
@@ -143,10 +143,20 @@ def credential_helper(token):
     return ["-c", f"credential.helper={helper}"], {**os.environ, "GHPUSH_TOKEN": token}, d
 
 
+GIST_ID = re.compile(r"[0-9a-fA-F]{20,}")
+
+
+def is_gist(repo):
+    """gist:TUNNUS tai omistaja/TUNNUS, jossa TUNNUS on gistin heksatunnus (32 merkkiä)."""
+    return repo.startswith("gist:") or bool(re.fullmatch(r"[\w.-]+/[0-9a-fA-F]{20,}", repo))
+
+
 def repo_url(repo):
-    """omistaja/varasto -> github.com, gist:TUNNUS -> gist.github.com"""
+    """omistaja/varasto -> github.com; gist:TUNNUS tai omistaja/TUNNUS -> gist.github.com"""
     if repo.startswith("gist:"):
         return f"https://gist.github.com/{repo[5:]}.git"
+    if is_gist(repo):
+        return f"https://gist.github.com/{repo}.git"
     return f"https://github.com/{repo}.git"
 
 
@@ -216,7 +226,7 @@ def main():
     a = ap.parse_args()
     if not re.fullmatch(r"[\w.-]+/[\w.-]+|gist:[0-9a-fA-F]{8,}", a.repo):
         raise SystemExit("varasto muodossa omistaja/nimi tai gist:tunnus")
-    if a.via == "api" and a.repo.startswith("gist:"):
+    if a.via == "api" and is_gist(a.repo):
         raise SystemExit("gistiin työnnetään gitillä (--via git)")
     files = collect(a.pairs)
     if not files:

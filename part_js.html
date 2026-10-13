@@ -3,12 +3,38 @@
 (() => {
 "use strict";
 let DATA_OK = true;
+/* Suora data: sivuston kokoaja (tools/website.py) lisää <meta name="lakitv-data"> = datavaraston data.json-osoite.
+   Sivu näyttää ensin oman kopionsa ja hakee taustalla uusimman datan; uudempi otetaan käyttöön (ks. käynnistys lopussa).
+   Artifactissa ja paikallisessa kopiossa metaa ei ole, jolloin mitään ei haeta. */
+const LIVE_SRC = (() => { const m = document.querySelector('meta[name="lakitv-data"]'); const u = m && m.content || ""; return /^https:\/\/[^\s"'<>]+$/.test(u) ? u : ""; })();
+const LIVE_KEY = "lakitv:live";
+let DATA_LIVE = false;
+/* Datan rakennetarkistus: vain tällainen data kelpaa (sama muoto kuin sivuun upotettu). */
+function dataOk(d) {
+  if (!d || typeof d !== "object" || typeof d.paivitetty !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(d.paivitetty)) return false;
+  if (!d.kanavat || typeof d.kanavat !== "object" || Array.isArray(d.kanavat)) return false;
+  let n = 0;
+  for (const k of Object.keys(d.kanavat)) {
+    const a = d.kanavat[k];
+    if (!Array.isArray(a)) return false;
+    for (const it of a) { if (!it || typeof it !== "object" || typeof it.otsikko !== "string" || typeof it.id !== "string") return false; n++; }
+  }
+  return n > 0;
+}
 const DATA = (() => {
+  let d;
   try {
-    const d = JSON.parse(document.getElementById("laki-tv-data").textContent);
+    d = JSON.parse(document.getElementById("laki-tv-data").textContent);
     if (!d || typeof d !== "object" || typeof d.kanavat !== "object") throw new Error("rakenne");
-    return d;
   } catch (e) { DATA_OK = false; console.error("LAKI-TV: tietoja ei voitu lukea", e); return {kanavat:{}}; }
+  if (LIVE_SRC) {   // tässä välilehdessä aiemmin haettu uudempi data (sessionStorage) ohittaa sivuston vanhemman kopion
+    try {
+      const l = JSON.parse(sessionStorage.getItem(LIVE_KEY) || "null");
+      if (dataOk(l) && l.paivitetty > (d.paivitetty || "")) { d = l; DATA_LIVE = true; }
+      else if (l) sessionStorage.removeItem(LIVE_KEY);
+    } catch (e) { try { sessionStorage.removeItem(LIVE_KEY); } catch (e2) {} }
+  }
+  return d;
 })();
 const COLS = 40, ROWS = 25;
 const TZ = "Europe/Helsinki";
@@ -27,6 +53,7 @@ window.addEventListener("error", () => {
   if (window.LAKITV) return;
   let k = 0;
   try { k = +(sessionStorage.getItem("lakitv:recover") || 0); if (k >= 2) return; sessionStorage.setItem("lakitv:recover", String(k + 1)); } catch (e) { return; }
+  if (k === 0) { try { sessionStorage.removeItem(LIVE_KEY); } catch (e) {} }   // ensimmäinen kaatuminen: suora data pois, sivuston oma kopio käyttöön
   if (k === 1) store.clear();   // toinen peräkkäinen kaatuminen: omat asetukset pois
   location.reload();
 });
@@ -1649,9 +1676,9 @@ function buildHelp() {
     ...P("JAKELU-näppäin avaa kalenterin, RSS- ja JSON-syötteet sekä viikkokatsauksen (sivu 109). Sivu 107 näyttää aamukoosteen, jonka ylläpitäjä voi ohjata Slack- tai Teams-kanavalle.",
          "Knappen FLÖDEN öppnar kalendern, RSS- och JSON-flödena och veckoöversikten (sidan 109). Sidan 107 visar morgonsammandraget, som administratören kan skicka till en Slack- eller Teams-kanal.",
          "The FEEDS key opens the calendar, the RSS and JSON feeds and the weekly review (page 109). Page 107 shows the morning digest, which the administrator can route to a Slack or Teams channel."),
-    ...P("Sivu ei kerää lukijoista mitään: ei evästeitä, ei tunnisteita, ei yhteyksiä kolmansiin palveluihin. Omat aiheet ja seurannat tallentuvat vain tähän selaimeen.",
-         "Sidan samlar inte in något om läsarna: inga kakor, inga identifierare, inga anslutningar till tredje parter. Egna ämnen och bevakningar sparas bara i den här webbläsaren.",
-         "The page collects nothing about its readers: no cookies, no identifiers, no connections to third parties. Your topics and follows are stored only in this browser."),
+    ...P("Sivu ei kerää lukijoista mitään: ei evästeitä, ei tunnisteita, ei kolmansien osapuolten palveluita. Sivusto hakee vain omat juttunsa. Omat aiheet ja seurannat tallentuvat vain tähän selaimeen.",
+         "Sidan samlar inte in något om läsarna: inga kakor, inga identifierare, inga tjänster från tredje part. Webbplatsen hämtar bara sina egna nyheter. Egna ämnen och bevakningar sparas bara i den här webbläsaren.",
+         "The page collects nothing about its readers: no cookies, no identifiers, no third-party services. The site fetches only its own news data. Your topics and follows are stored only in this browser."),
     head(S("AIHEET JA SUODATIN", "ÄMNEN OCH FILTER"), "y"),
     ...P("Sivuilla 851–869 on jutut aiheittain kaikilta kanavilta. AIHEET-näppäimellä voit valita omat aiheesi: kanavat, etusivu ja sivu 110 näyttävät silloin vain niihin liittyvät jutut. Valinta tallentuu vain tähän selaimeen.",
          "På sidorna 851–869 finns nyheterna per ämne från alla kanaler. Med ÄMNEN-knappen väljer du egna ämnen: kanalerna, förstasidan och sidan 110 visar då bara nyheter om dem. Valet sparas bara i den här webbläsaren.",
@@ -2293,7 +2320,9 @@ function buildStatus() {
   const body = [];
   const st = DATA._lahteet || {}, keys = Object.keys(SRC_LABEL).filter(k => st[k]).concat(Object.keys(st).filter(k => !SRC_LABEL[k]));
   const stale = staleNote();
-  const r0 = blank(); put(r0, 1, S("Päivitetty", "Uppdaterad"), "c"); put(r0, 12, fmtStamp(DATA.paivitetty), stale ? "r" : "w"); body.push(r0);
+  const r0 = blank(); put(r0, 1, S("Päivitetty", "Uppdaterad"), "c"); put(r0, 12, fmtStamp(DATA.paivitetty), stale ? "r" : "w");
+  if (DATA_LIVE) putR(r0, 38, S("SUORA", "DIREKT", "LIVE"), "g");   // data haettu datavarastosta, ei sivuston omasta kopiosta
+  body.push(r0);
   if (stale) body.push(line(stale, "r"));
   const upd = Date.parse(DATA.paivitetty || "");
   body.push(gap(), head(S("LÄHTEET · viimeksi luettu · linkkejä", "KÄLLOR · senast läst · länkar")));
@@ -2453,6 +2482,7 @@ function paintRow(i, r) {
 
 let page = null;
 let searchTimer = null, typeTimer = null;
+let liveNew = false;   // datavarastosta saatiin uudempi data lukijan jo selatessa; otetaan käyttöön seuraavassa sivunvaihdossa
 
 function headerRow() {
   const r = blank();
@@ -2523,6 +2553,7 @@ function go(num, fromBack = false, ex = null) {
     if (day) state.day = day;
     if (ai) state.arch = ai;
     show(num, 0);
+    if (liveNew) { liveNew = false; location.reload(); }   // uudempi data odottaa: sivu latautuu uudelleen samalle sivulle (osoite on jo päivitetty)
   };
   if (reduceMotion || num === state.current) { commit(); return; }
   state.target = num;
@@ -3000,8 +3031,8 @@ function fit() {
 let fitRaf = 0;
 window.addEventListener("resize", () => { cancelAnimationFrame(fitRaf); fitRaf = requestAnimationFrame(fit); });
 
-/* Kaukosäätimen fontti ladataan vasta ruudun piirron jälkeen */
-/* Sivu ei lataa mitään ulkopuolisista palveluista: kaukosäätimen ja paneelin kirjasin on laitteen oma. */
+/* Sivu ei lataa mitään kolmansista palveluista: kaukosäätimen ja paneelin kirjasin on laitteen oma.
+   Ainoa haku on sivuston oma data.json datavarastosta (alla), ja sekin vain julkaistulla sivustolla. */
 /* Käynnistys */
 applyStatic();
 setCaps(state.caps, false);
@@ -3011,7 +3042,34 @@ fit();
 if (store.get("kbd") === "1" && window.innerWidth >= 960) setKbd(true, false);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 try { sessionStorage.removeItem("lakitv:recover"); } catch (e) {}
-window.LAKITV = {state, getPage, go, show, buildAll, setKbd, NUMS:() => NUMS, TOPICS, CHANNELS, fillerPage, setLang, weekTop, allKnown, followList, toggleFollow, icsText, kalEventsUpcoming, KAL, fileUrl, itemIndexGet:n => itemIndex.get(n), cleanFollows, copyText};
+
+/* Suora data: haetaan datavaraston uusin data.json. Jos se on uudempi kuin näytetty, se talletetaan tähän välilehteen
+   (sessionStorage) ja sivu latautuu uudelleen – heti, jos lukija ei ole vielä ehtinyt tehdä mitään, muuten seuraavassa
+   sivunvaihdossa. Näin sivusto pysyy ajan tasalla, vaikka sen rakennusajo (GitHub Actions) olisi myöhässä.
+   Vain rakennetarkistuksen läpäisevä ja vähintään puolet nykyisestä juttumäärästä sisältävä data kelpaa. */
+function liveRefresh() {
+  if (!LIVE_SRC || !DATA_OK || typeof fetch !== "function") return;
+  const t0 = Date.now(); let touched = false;
+  const mark = () => { touched = true; };
+  window.addEventListener("keydown", mark, {once:true, capture:true});
+  window.addEventListener("pointerdown", mark, {once:true, capture:true});
+  const ctl = typeof AbortController === "function" ? new AbortController() : null;
+  if (ctl) setTimeout(() => ctl.abort(), 8000);
+  const url = LIVE_SRC + (LIVE_SRC.includes("?") ? "&" : "?") + "v=" + Math.floor(Date.now() / 300000);   // uusi osoite 5 min välein: välimuisti ei jää vanhaan
+  fetch(url, {signal: ctl ? ctl.signal : undefined, cache: "no-cache", credentials: "omit", referrerPolicy: "no-referrer"})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!dataOk(d) || !(d.paivitetty > (DATA.paivitetty || ""))) return;
+      const n = Object.values(d.kanavat).reduce((s, a) => s + a.length, 0), cur = allItems().length;
+      if (n < cur / 2) { console.warn("LAKI-TV: datavaraston data hylätty (juttuja " + n + " < " + cur + "/2)"); return; }
+      try { sessionStorage.setItem(LIVE_KEY, JSON.stringify(d)); } catch (e) { return; }
+      if (!touched && Date.now() - t0 < 2500 && !state.typed && !panel.open) location.reload();
+      else liveNew = true;
+    })
+    .catch(() => {});
+}
+liveRefresh();
+window.LAKITV = {state, getPage, go, show, buildAll, setKbd, NUMS:() => NUMS, TOPICS, CHANNELS, fillerPage, setLang, weekTop, allKnown, followList, toggleFollow, icsText, kalEventsUpcoming, KAL, fileUrl, itemIndexGet:n => itemIndex.get(n), cleanFollows, copyText, dataStamp:() => DATA.paivitetty, dataLive:() => DATA_LIVE, liveSrc:() => LIVE_SRC, dataOk};
 })();
 </script>
 

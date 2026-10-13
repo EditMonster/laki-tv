@@ -2,8 +2,11 @@
 """Tietoturva- ja vikatilannetesti: vihamielinen data, rikkinäinen selainmuisti, puuttuvat kyvyt.
 Rakentaa kopion sivusta, jonka dataan on ujutettu XSS-yritteitä, ja tarkistaa ettei mikään suoritu."""
 import json, re, sys, os
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # varaston juuri
+_FONTS = _os.path.join(_ROOT, 'fonts') if _os.path.isdir(_os.path.join(_ROOT, 'fonts')) else _os.path.join(_ROOT, '..', 'fonts')
 from playwright.sync_api import sync_playwright
-BASE = "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv"
+BASE = _ROOT
 SRC = f"{BASE}/laki-tv.html"
 OUT = f"{BASE}/test/sec_page.html"
 BLOCK = re.compile(r'(<script type="application/json" id="laki-tv-data">)(.*?)(</script>)', re.S)

@@ -1,8 +1,11 @@
 """Työkalun regressiotestit (ei verkkoa: verkkohaut korvataan)."""
 import sys, json, copy, datetime, subprocess, os, re
-sys.path.insert(0, "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/tools")
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # varaston juuri
+_FONTS = _os.path.join(_ROOT, 'fonts') if _os.path.isdir(_os.path.join(_ROOT, 'fonts')) else _os.path.join(_ROOT, '..', 'fonts')
+sys.path.insert(0, _ROOT + "/tools")
 import lakitv as L
-B = "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/"
+B = _ROOT + "/"
 D = json.load(open(B + "data.json", encoding="utf-8"))
 fails = []
 def ok(c, msg, extra=""):
@@ -220,7 +223,8 @@ ok(r.returncode != 0 and "SALAINEN" not in (r.stderr + r.stdout), "ghpush: avain
 ok(not any(n.startswith("ghpush-cred-") for n in os.listdir(tempfile.gettempdir())), "ghpush: credential helper siivotaan")
 # gist-kohde: osoite gist.github.com, muotovaatimus, ja haaran automaattinen tunnistus (master-haarainen varasto)
 sys.path.insert(0, B + "tools"); import ghpush as GP
-ok(GP.repo_url("gist:0123456789abcdef0123") == "https://gist.github.com/0123456789abcdef0123.git" and GP.repo_url("a/b") == "https://github.com/a/b.git", "ghpush: gist-osoite")
+ok(GP.repo_url("gist:0123456789abcdef0123") == "https://gist.github.com/0123456789abcdef0123.git" and GP.repo_url("a/b") == "https://github.com/a/b.git"
+   and GP.repo_url("EditMonster/0123456789abcdef0123456789abcdef") == "https://gist.github.com/EditMonster/0123456789abcdef0123456789abcdef.git", "ghpush: gist-osoite (gist: ja omistaja/tunnus)")
 r = sh(sys.executable, GH, "gist:xyz", "data.json=data.json")
 ok(r.returncode != 0 and "gist:tunnus" in (r.stderr + r.stdout), "ghpush: gist-tunnuksen muoto tarkistetaan")
 sh("git", "init", "-q", "--bare", "remote2.git"); sh("git", "clone", "-q", "remote2.git", "seed2"); seed2 = td + "/seed2"

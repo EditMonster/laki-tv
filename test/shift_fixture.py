@@ -1,12 +1,13 @@
 """Siirtää kiinteän testidatan (30.9.2026) päivämäärät tähän päivään, jotta aikariippuvat testit pysyvät vakaina."""
-import os as _os
-ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 import re, json, datetime, sys
-sys.path.insert(0, ROOT + "/tools")
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # varaston juuri
+_FONTS = _os.path.join(_ROOT, 'fonts') if _os.path.isdir(_os.path.join(_ROOT, 'fonts')) else _os.path.join(_ROOT, '..', 'fonts')
+sys.path.insert(0, _ROOT + "/tools")
 import lakitv as L
-B = ROOT + "/"
+B = _ROOT + "/"
 base = datetime.date(2026, 9, 30); today = L.now().date(); delta = (today - base).days
-s = open(B + "test/fixture_base.json", encoding="utf-8").read()
+s = open(B + "sec/data_0930.json", encoding="utf-8").read()
 def shift(m):
     try:
         d = datetime.date.fromisoformat(m.group(0))

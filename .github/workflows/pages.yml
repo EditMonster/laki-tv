@@ -2,7 +2,9 @@
 # Turvamalli: päivitysajo ei koske tähän varastoon lainkaan. Se työntää vain data.json-tiedoston erilliseen datavarastoon –
 # gistiin (LAKITV_DATA_REPO = gist:TUNNUS) tai varastoon (omistaja/nimi) – avaimella, joka on rajattu vain sinne.
 # Tämä työnkulku hakee datan sieltä (tai muuttujan LAKITV_DATA_URL osoitteesta), tarkistaa sen (validate) ja rakentaa
-# sivuston tämän varaston koodista. Ajetaan tunneittain; jos datan paivitetty on jo sivustolla, julkaisu ohitetaan.
+# sivuston tämän varaston koodista. Ajetaan kaksi kertaa tunnissa; jos datan paivitetty on jo sivustolla, julkaisu ohitetaan.
+# Sivu saa lisäksi datavaraston osoitteen (meta lakitv-data) ja hakee itse uusimman datan, joten lukija näkee uudet jutut,
+# vaikka ajastettu rakennusajo olisi myöhässä.
 # Pages-asetuksissa lähteeksi valitaan "GitHub Actions".
 name: pages
 on:
@@ -10,7 +12,7 @@ on:
     branches: [main]
     paths: ["data.json", "part_*.html", "build.py", "fonts/**", "assets/**", "tools/**", ".github/workflows/pages.yml"]
   schedule:
-    - cron: "17 * * * *"
+    - cron: "7,37 * * * *"   # kaksi kertaa tunnissa: GitHub viivästää tai jättää ajastettuja ajoja väliin, joten yrityksiä on useita
   workflow_dispatch:
 permissions:
   contents: read
@@ -54,6 +56,7 @@ jobs:
           NEW=$(python3 -c "import json; print(json.load(open('data.json', encoding='utf-8')).get('paivitetty', ''))")
           LIVE=$(curl -fsSL --max-time 30 "$SITE" | grep -o '"paivitetty":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
           echo "data: $NEW · sivustolla: ${LIVE:-?}"
+          echo "url=$DATA_URL" >> "$GITHUB_OUTPUT"
           if [ "$EVENT" = "schedule" ] && [ -n "$LIVE" ] && [ "$NEW" = "$LIVE" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"; echo "Ei uutta dataa – ei julkaista."
           fi
@@ -78,7 +81,7 @@ jobs:
         if: steps.data.outputs.skip != 'true'
         env:
           LAKITV_DOMAIN: ${{ vars.LAKITV_DOMAIN }}
-        run: python3 tools/website.py --page laki-tv.html --feeds jakelu --out site --base "${{ steps.pages.outputs.base_url }}/"
+        run: python3 tools/website.py --page laki-tv.html --feeds jakelu --out site --base "${{ steps.pages.outputs.base_url }}/" --data-url "${{ steps.data.outputs.url }}"
       - name: Jakokuva (sivu 100 tänään)
         if: steps.data.outputs.skip != 'true'
         continue-on-error: true

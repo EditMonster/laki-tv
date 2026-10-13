@@ -8,7 +8,8 @@ manifest, service worker, kuvakkeet ja robots.txt.
   python3 tools/website.py --page laki-tv.html --feeds out --out site --base https://kayttaja.github.io/laki-tv/
   python3 tools/website.py --from-dir fetched --out site --base https://laki-tv.fi/ --domain laki-tv.fi
 
-Ympäristömuuttujat LAKITV_BASE ja LAKITV_DOMAIN toimivat --base- ja --domain-valitsimien tilalla (GitHub Actions)."""
+Ympäristömuuttujat LAKITV_BASE, LAKITV_DOMAIN ja LAKITV_DATA_URL toimivat --base-, --domain- ja --data-url-valitsimien tilalla (GitHub Actions).
+--data-url (datavaraston data.json) saa sivun hakemaan uusimman datan itse, jolloin sivusto on ajan tasalla, vaikka rakennusajo olisi myöhässä."""
 import argparse, html, os, re, shutil, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -53,7 +54,7 @@ def rebase(text, base):
     return re.sub(r"https://claude\.ai/(?:code/)?artifact/[A-Za-z0-9_-]+(/)?", lambda m: base, text)
 
 
-def head(base, domain):
+def head(base, domain, data_url=""):
     canon = base or ""
     og_img = (base + "og.png") if base else "og.png"
     H = ['<!doctype html>', '<html lang="fi">', '<head>', '<meta charset="utf-8">',
@@ -76,6 +77,8 @@ def head(base, domain):
     if canon:
         H.append(f'<link rel="canonical" href="{html.escape(canon)}">')
         H.append(f'<meta property="og:url" content="{html.escape(canon)}">')
+    if data_url:   # suora data: sivu hakee uusimman data.jsonin tästä osoitteesta (ks. part_js.html, liveRefresh)
+        H.append(f'<meta name="lakitv-data" content="{html.escape(data_url)}">')
     H += ['<style>html,body{margin:0;padding:0;background:#000}</style>', '</head>', '<body>']
     return "\n".join(H) + "\n"
 
@@ -142,7 +145,12 @@ def main():
     ap.add_argument("--out", default="site")
     ap.add_argument("--base", default=os.environ.get("LAKITV_BASE", ""), help="sivuston osoite, esim. https://laki-tv.fi/")
     ap.add_argument("--domain", default=os.environ.get("LAKITV_DOMAIN", ""), help="oma domain (kirjoittaa CNAME-tiedoston)")
+    ap.add_argument("--data-url", default=os.environ.get("LAKITV_DATA_URL", ""),
+                    help="datavaraston data.json-osoite (https); sivu hakee siitä uusimman datan, vaikka rakennusajo olisi myöhässä")
     a = ap.parse_args()
+    data_url = a.data_url.strip()
+    if data_url and not re.fullmatch(r"https://[^\s\"'<>]+", data_url):
+        sys.exit("VIRHE: --data-url ei ole https-osoite")
     if a.from_dir:
         feeds = a.from_dir
         page_path = next((os.path.join(a.from_dir, n) for n in ("laki-tv.html", "index.html") if os.path.exists(os.path.join(a.from_dir, n))), None)
@@ -161,7 +169,7 @@ def main():
         base += "/"
     os.makedirs(a.out, exist_ok=True)
     with open(os.path.join(a.out, "index.html"), "w", encoding="utf-8") as f:
-        f.write(head(base, a.domain) + body + TAIL)
+        f.write(head(base, a.domain, data_url) + body + TAIL)
     copied = []
     TEXTY = (".xml", ".json", ".md", ".html", ".txt", ".ics")
     def put(srcp, dstname):

@@ -1,10 +1,13 @@
 # Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """v7: seuraa asiaa (108), kalenteri (paneeli, .ics, Google/Outlook-linkit), jakelu (109, feed/kalenteri/viikkokatsaus), ei alasivukiertoa."""
 import json, subprocess, os, re
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # varaston juuri
+_FONTS = _os.path.join(_ROOT, 'fonts') if _os.path.isdir(_os.path.join(_ROOT, 'fonts')) else _os.path.join(_ROOT, '..', 'fonts')
 from playwright.sync_api import sync_playwright
 import datetime as _dt, zoneinfo as _zi
 _FIXED = _dt.datetime.combine(_dt.datetime.now(_zi.ZoneInfo("Europe/Helsinki")).date(), _dt.time(21, 0), tzinfo=_zi.ZoneInfo("Europe/Helsinki"))   # testikello: tänään klo 21 Helsinki
-BASE = "/tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/"
+BASE = _ROOT + "/"
 ok = []
 def check(name, cond, info=""):
     ok.append(bool(cond)); print(("OK   " if cond else "FAIL ") + name + ("" if cond else f"  -> {info}"))

@@ -1,8 +1,11 @@
 # Testit avaavat näppäimistön (kaukosäätimen) sivupaneelin heti sivun latauduttua, jotta sen näppäimiä voi painaa.
 """Päällekirjoitukset suodattimen ollessa päällä (pitkät aihenimet) molemmilla kielillä."""
 import json
+import os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # varaston juuri
+_FONTS = _os.path.join(_ROOT, 'fonts') if _os.path.isdir(_os.path.join(_ROOT, 'fonts')) else _os.path.join(_ROOT, '..', 'fonts')
 from playwright.sync_api import sync_playwright
-URL = "file:///tmp/claude-0/-home-claude/c8405571-3ec0-5dfb-a73c-700ea8f8ed87/scratchpad/laki-tv/test/fixture.html"
+URL = "file://" + _ROOT + "/test/fixture.html"
 JS = """(lang) => {
   const L = window.LAKITV; L.setLang(lang);
   const out = [];

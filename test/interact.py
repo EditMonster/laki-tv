@@ -20,6 +20,8 @@ def all_text(pg):
     for s in range(n):
         pg.evaluate(f"window.LAKITV.show({c},{s},true)")
         out.append(screen_text(pg))
+    if pg.evaluate(f"!!window.LAKITV.getPage({c}).detail"):   # jutun lähdetiedot (asiasanat, aiheet, seuranta, lähde)
+        pg.evaluate("window.LAKITV.toggleDetail()"); out.append(screen_text(pg))
     pg.evaluate(f"window.LAKITV.show({c},0,true)")
     return "\n".join(out)
 screen_text = lambda pg: pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r=>r.textContent).join('\\n')")
@@ -32,8 +34,8 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.goto(URL); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     check("aloitus etusivulla", cur(pg) == 100)
-    check("isot kirjaimet oletuksena", pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
-    check("LakiCaps käytössä", "LakiCaps" in pg.evaluate("getComputedStyle(document.getElementById('rows')).fontFamily"))
+    check("pien- ja suuraakkoset oletuksena (leipäteksti luettavampi; kaista ja otsikot ovat versaalia datassa)", not pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
+    check("Bedstead käytössä oletuksena", "Bedstead" in pg.evaluate("getComputedStyle(document.getElementById('rows')).fontFamily"))
     # näppäimistö: sivunumero
     pg.keyboard.type("201"); pg.wait_for_timeout(400)
     check("näppäily 201", cur(pg) == 201, cur(pg))
@@ -110,7 +112,7 @@ with sync_playwright() as p:
     check("EIT vireillä-juttu näyttää VAIHE", "VAIHE" in t.upper() and "VIREILL" in t.upper(), t[:300])
     check("aiherivi kohdesivulla", "AIHEET" in t.upper() and "867" in t, "")
     # aihesivun linkki kohdesivulta
-    pg.evaluate("(function(){ const L = window.LAKITV, n = L.getPage(264).subs.length; for (let i = 0; i < n; i++) { L.show(264, i); if (document.querySelector('#rows a[data-p=\"867\"]')) return i; } })()"); pg.wait_for_timeout(200)
+    pg.evaluate("(function(){ const L = window.LAKITV, n = L.getPage(264).subs.length; for (let i = 0; i < n; i++) { L.show(264, i); if (document.querySelector('#rows a[data-p=\"867\"]')) return i; } L.show(264, 0); if (L.getPage(264).detail) L.toggleDetail(); })()"); pg.wait_for_timeout(200)
     pg.click("#rows a[data-p='867']"); pg.wait_for_timeout(400)
     check("aiheen linkki -> 867", cur(pg) == 867, cur(pg))
     # tyhjä kanavapaikka
@@ -119,12 +121,12 @@ with sync_playwright() as p:
     check("vapaa paikka 233: kuva + päivän termi", "PÄIVÄN TERMI" in t.upper() and "SIVU 233" in t.upper(), t[:200])
     # Kirjainkoko
     pg.keyboard.press("c")
-    check("C vaihtaa pienet kirjaimet", not pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
+    check("C vaihtaa isot kirjaimet (LakiCaps)", pg.evaluate("document.getElementById('rows').classList.contains('caps')") and "LakiCaps" in pg.evaluate("getComputedStyle(document.getElementById('rows')).fontFamily"))
     pg.reload(); pg.wait_for_timeout(400)
-    check("kirjainkoko muistetaan", not pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
+    check("kirjainkoko muistetaan", pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
     check("hash-linkki säilyy reloadissa", cur(pg) == 233, cur(pg))
     pg.click("#kCase")
-    check("ABC-näppäin palauttaa isot", pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
+    check("ABC-näppäin palauttaa pienet", not pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
     # Aihesuodatin
     pg.click("#kTopics"); pg.wait_for_timeout(200)
     check("AIHEET avaa paneelin", pg.evaluate("document.getElementById('panel').open"))
@@ -203,3 +205,4 @@ with sync_playwright() as p:
     b.close()
 print("\n".join(results))
 print(sum(r.startswith("OK") for r in results), "/", len(results), "OK")
+import sys as _sys; _sys.exit(0 if all(r.startswith("OK") for r in results) else 1)

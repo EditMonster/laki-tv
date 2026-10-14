@@ -84,7 +84,7 @@ with sync_playwright() as p:
     # pienet
     n = pg.evaluate("[...window.LAKITV.NUMS()].find(n => (window.LAKITV.itemIndexGet(n)||{}).it && window.LAKITV.itemIndexGet(n).it.id === 'NT:2026:1')")
     t = pg.evaluate("((num) => { const L = window.LAKITV; let t=''; const n = L.getPage(num).subs.length; for (let s=0;s<n;s++){ L.show(num,s,true); t += " + rows + " + '\\n'; } return t; })(" + str(n) + ")")
-    ok("undefined" not in t.lower() and "TIIVISTELMÄ" in t.upper(), "juttusivu ilman tekstityyppiä: ei 'undefined', tyyppirivi 'Tekoälyn tiivistelmä'", t[:200])
+    ok("undefined" not in t.lower() and "TEKOÄLY" not in t.upper(), "juttusivu ilman tekstityyppiä: ei 'undefined', ei tyyppiriviä", t[:200])
     pg.evaluate("window.LAKITV.state.arch = 'ARK-L-1'; window.LAKITV.show(105,0,true)")
     t = pg.evaluate("""() => { const L = window.LAKITV; let t=''; const n = L.getPage(105).subs.length; for (let s=0;s<n;s++){ L.show(105,s,true); t += """ + rows + """ + '\\n'; } return t; }""")
     ok("PÄÄTTYNYT" in t and "KALENTERIIN" not in t, "arkistoitu lausunto: PÄÄTTYNYT, ei kalenterilinkkiä", t[:300])

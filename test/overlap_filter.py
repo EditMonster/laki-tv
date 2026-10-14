@@ -35,3 +35,4 @@ with sync_playwright() as p:
     print("detector", pg.evaluate("() => { window.__ovl = []; const L = window.LAKITV; const pg = L.getPage(100); return window.__ovl.length; }"))
     print("errors", errs)
     b.close()
+import sys as _sys; _sys.exit(1 if errs else 0)

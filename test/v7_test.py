@@ -12,7 +12,7 @@ ok = []
 def check(name, cond, info=""):
     ok.append(bool(cond)); print(("OK   " if cond else "FAIL ") + name + ("" if cond else f"  -> {info}"))
 rows = lambda pg: pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')")
-allrows = lambda pg, n: pg.evaluate("""(n) => { const L = window.LAKITV; let t = ''; const p = L.getPage(n); for (let s = 0; s < p.subs.length; s++) { L.show(n, s); t += [...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n'); } return t; }""", n)
+allrows = lambda pg, n: pg.evaluate("""(n) => { const L = window.LAKITV; let t = ''; const p = L.getPage(n); for (let s = 0; s < p.subs.length; s++) { L.show(n, s); t += [...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n'); } if (p.detail) { L.toggleDetail(); t += '\\n' + [...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n'); L.toggleDetail(); } return t; }""", n)
 d = json.load(open(BASE + "test/fixture_data.json", encoding="utf-8"))
 laus = d["kanavat"]["lausunnot"][0]
 with sync_playwright() as p:
@@ -25,7 +25,7 @@ with sync_playwright() as p:
     t = allrows(pg, 199)
     check("ohje: ei HOLD-riviä", "PYSÄYTÄ ALASIVUJEN" not in t.upper() and "HOLD" not in t)
     pg.evaluate("window.LAKITV.go(741)"); pg.wait_for_timeout(300)
-    pg.evaluate("window.LAKITV.show(741, window.LAKITV.getPage(741).subs.length - 1)"); pg.wait_for_timeout(200)
+    pg.evaluate("window.LAKITV.show(741, 0); window.LAKITV.toggleDetail()"); pg.wait_for_timeout(200)
     t = rows(pg)
     check("juttusivu: SEURAA ASIAA ja KALENTERIIN", "SEURAA ASIAA" in t and "KALENTERIIN" in t, t[-300:])
     pg.click("a[data-act='seuraa']"); pg.wait_for_timeout(400)
@@ -47,7 +47,7 @@ with sync_playwright() as p:
     pg.reload(); pg.wait_for_timeout(500)
     check("seuranta säilyy latauksen yli", pg.evaluate("window.LAKITV.followList().length") == 1)
     pg.evaluate("window.LAKITV.go(741)"); pg.wait_for_timeout(200)
-    pg.evaluate("window.LAKITV.show(741, window.LAKITV.getPage(741).subs.length - 1)"); pg.wait_for_timeout(200)
+    pg.evaluate("window.LAKITV.show(741, 0); window.LAKITV.toggleDetail()"); pg.wait_for_timeout(200)
     pg.click("a[data-act='seuraa']"); pg.wait_for_timeout(300)
     check("lopeta seuranta", pg.evaluate("window.LAKITV.followList().length") == 0 and "SEURAA ASIAA" in rows(pg))
     # kalenteri
@@ -87,7 +87,7 @@ with sync_playwright() as p:
     e2 = []; pg2.on("pageerror", lambda e: e2.append(str(e)))
     pg2.goto("file://" + BASE + "test/fixture.html"); pg2.wait_for_timeout(500); pg2.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg2.wait_for_timeout(300)
     pg2.evaluate("window.LAKITV.go(741)"); pg2.wait_for_timeout(200)
-    pg2.evaluate("window.LAKITV.show(741, window.LAKITV.getPage(741).subs.length - 1)"); pg2.wait_for_timeout(200)
+    pg2.evaluate("window.LAKITV.show(741, 0); window.LAKITV.toggleDetail()"); pg2.wait_for_timeout(200)
     pg2.click("a[data-act='seuraa']"); pg2.wait_for_timeout(600)
     docs = pg2.evaluate("window.__docs")
     check("seuranta ei kirjoita tietokantaan", not any(k.startswith("tilaukset") for k in docs), docs)
@@ -127,3 +127,4 @@ with sync_playwright() as p:
     check("ei JS-virheitä", not errs and not e2, errs + e2)
     b.close()
 print(f"{sum(ok)} / {len(ok)} OK")
+import sys as _sys; _sys.exit(0 if all(ok) else 1)

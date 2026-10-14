@@ -12,7 +12,7 @@ def ok(c, msg, extra=""):
     print(("OK  " if c else "FAIL") + " " + msg + (f" -> {str(extra)[:300]}" if extra and not c else ""))
     if not c: fails.append(msg)
 rows = "[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')"
-allsubs = lambda num: """((num) => { const L = window.LAKITV; let out = []; const n = L.getPage(num).subs.length; for (let s=0;s<n;s++){ L.show(num,s,true); out.push(""" + rows + """); } return out; })(%d)""" % num
+allsubs = lambda num: """((num) => { const L = window.LAKITV; let out = []; const n = L.getPage(num).subs.length; for (let s=0;s<n;s++){ L.show(num,s,true); out.push(""" + rows + """); } if (L.getPage(num).detail) { L.toggleDetail(); out.push(""" + rows + """); L.toggleDetail(); } return out; })(%d)""" % num
 
 d = json.load(open(B + "test/fixture_data.json", encoding="utf-8"))
 today = L.now().date()
@@ -105,8 +105,9 @@ with sync_playwright() as p:
     n = pg.evaluate("[...window.LAKITV.NUMS()].find(n => (window.LAKITV.itemIndexGet(n)||{}).it && window.LAKITV.itemIndexGet(n).it.maaraaika > %s)" % json.dumps(today.isoformat()))
     if n:
         link = None
-        for sub in range(pg.evaluate(f"window.LAKITV.getPage({n}).subs.length")):
-            pg.evaluate(f"window.LAKITV.show({n},{sub},true)"); pg.wait_for_timeout(100)
+        for sub in range(pg.evaluate(f"window.LAKITV.getPage({n}).subs.length") + 1):
+            pg.evaluate(f"window.LAKITV.show({n},{min(sub, 0)},true)"); pg.wait_for_timeout(100)
+            if sub: pg.evaluate("window.LAKITV.toggleDetail()"); pg.wait_for_timeout(100)   # jutun lähdetiedot
             link = pg.query_selector("#rows a[data-act='kal']")
             if link: break
         if link:

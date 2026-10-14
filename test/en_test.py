@@ -12,7 +12,7 @@ ok = []
 def check(name, cond, info=""):
     ok.append(bool(cond)); print(("OK   " if cond else "FAIL ") + name + ("" if cond else f"  -> {info}"))
 rows = lambda pg: pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')")
-allrows = lambda pg, n: pg.evaluate("""(n) => { const L = window.LAKITV; let t = ''; const p = L.getPage(n); for (let s = 0; s < p.subs.length; s++) { L.show(n, s); t += [...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n'); } return t; }""", n)
+allrows = lambda pg, n: pg.evaluate("""(n) => { const L = window.LAKITV; let t = ''; const p = L.getPage(n); for (let s = 0; s < p.subs.length; s++) { L.show(n, s); t += [...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n'); } if (p.detail) { L.toggleDetail(); t += '\\n' + [...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n'); L.toggleDetail(); } return t; }""", n)
 
 # 0) staattinen kattavuus: jokaiselle S("…")-kutsulle on englanninnos EN_S:ssä
 src = open(BASE + "part_js.html", encoding="utf-8").read()
@@ -90,8 +90,10 @@ with sync_playwright() as p:
     r = subprocess.run(["python3", BASE + "tools/lakitv.py", "digest", BASE + "test/fixture_data.json", "--laji", "aamu", "--tilaukset", "/tmp/t_til.json", "--out", "/tmp/t_msgs.json"], capture_output=True, text=True)
     msgs = json.load(open("/tmp/t_msgs.json"))
     check("digest: englanninkielinen viesti tilaajalle", msgs and msgs[0]["kieli"] == "en" and msgs[0]["subject"].startswith("LAKI-TV morning digest") and "LEGAL TELETEXT" in msgs[0]["html"], (r.stdout, msgs[0]["subject"] if msgs else None))
-    r = subprocess.run(["python3", BASE + "tools/lakitv.py", "validate", BASE + "test/fixture_data.json"], capture_output=True, text=True)
+    r = subprocess.run(["python3", BASE + "tools/lakitv.py", "validate", BASE + "test/fixture_data.json"], capture_output=True, text=True,
+                       env={**_os.environ, "LAKITV_NOW": _FIXED.isoformat()})   # testidata on siirretty tähän päivään: kello illalla, ettei julkaisu ole "tulevaisuudessa"
     check("validate: ei ENGLANTI PUUTTUU -rivejä", "ENGLANTI PUUTTUU" not in r.stdout and "0 virhettä" in r.stdout, r.stdout[-300:])
     check("ei JS-virheitä", not errs and not e2, errs + e2)
     b.close()
 print(f"{sum(ok)} / {len(ok)} OK")
+import sys as _sys; _sys.exit(0 if all(ok) else 1)

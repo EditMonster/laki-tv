@@ -41,6 +41,10 @@ MAX_FETCH = 25 * 1024 * 1024   # tavua; suurempi vastaus katkaistaan (PDF:t ja H
 
 # ---------------------------------------------------------------- yleiset
 def now():
+    v = os.environ.get("LAKITV_NOW")   # testit: kiinteä kello (ISO, Helsingin aikaa)
+    if v:
+        t = datetime.datetime.fromisoformat(v)
+        return t.astimezone(HKI) if t.tzinfo else t.replace(tzinfo=HKI)
     return datetime.datetime.now(HKI)
 
 
@@ -439,39 +443,15 @@ def sane_date(v):
 
 
 
-# ---------------------------------------------------------------- yhden sivun rivibudjetti (sama kuin sivun buildItem)
-# Juttusivu on 23 riviä: kaista, otsikko (2 riviä/rivi), tunnusrivi(t), erikoisrivi (määräaika / eduskunta / vaihe), elin,
-# asiasanat (1), tyhjä, teksti, lopputulos, huom, tyhjä, tyyppirivi, aiheet, toimintorivi, lähderivi. Jos rivejä tulee enemmän,
-# sivu jakautuu alasivuihin. validate pyytää lyhentämään uusien juttujen tekstiä, jotta juttu mahtuu yhdelle sivulle.
-ONE_PAGE_SINCE = "2026-10-15"          # tästä päivästä lisätyille jutuille ylitys on virhe, vanhemmille vain huomautus
-TEKSTI_MAX = {"fi": 40, "sv": 45, "en": 50}   # ohjeellinen sanaraja; ratkaiseva on rivibudjetti
-LOPPUTULOS_MAX = 12
+# ---------------------------------------------------------------- tiivistelmäsivun rivibudjetti (sama kuin sivun buildItem)
+# Juttu on yksi sivu; lähdetiedot (asiasanat, aiheet, seuranta, lähde) avautuvat samalle numerolle. Sivu on 23 riviä:
+# kaista, otsikko (2 riviä/rivi), tunnusrivi(t), määräaika- tai vaiherivi, tyhjä, teksti, lopputulos, huom, lainvoimahuomautus,
+# alarivi (NÄYTÄ LÄHDETIEDOT). Jos rivejä tulee enemmän, sivu näyttää vain sivulle mahtuvat kokonaiset virkkeet ja lähdetiedoissa
+# lukee "Lyhennetty": validate pyytää lyhentämään (uusille jutuille virhe YLI SIVUN, vanhoille huomautus LYHENNÄ).
+ONE_PAGE_SINCE = "2026-10-15"          # tästä päivästä lisätyille jutuille myös sanarajat ovat virheitä; rivibudjetti koskee kaikkia
+TEKSTI_MAX = {"fi": 50, "sv": 55, "en": 65}   # ohjeellinen sanaraja; ratkaiseva on tiivistelmäsivun rivibudjetti
+LOPPUTULOS_MAX = 15
 SELKO_MAX = {"fi": 60, "sv": 70, "en": 80}
-CH_NAME = {"fi": {"kko": "KORKEIN OIKEUS", "eu": "EU-TUOMIOISTUIN", "eit": "IHMISOIKEUSTUOMIOISTUIN", "icj": "KANSAINVÄLINEN TUOMIOISTUIN",
-                  "kho": "KORKEIN HALLINTO-OIKEUS", "laillisuus": "LAILLISUUSVALVONTA", "hao": "HALLINTO-OIKEUDET", "muut": "MUUT TUOMIOISTUIMET",
-                  "kilpailu": "KILPAILUOIKEUS", "fiva": "FINANSSIVALVONTA", "tsv": "TIETOSUOJA", "he": "HALLITUKSEN ESITYKSET", "lausunnot": "LAUSUNTOKIERROKSET"},
-           "sv": {"kko": "HÖGSTA DOMSTOLEN", "eu": "EU-DOMSTOLEN", "eit": "MÄNNISKORÄTTSDOMSTOLEN", "icj": "INTERNATIONELLA DOMSTOLEN",
-                  "kho": "HÖGSTA FÖRVALTNINGSDOMSTOLEN", "laillisuus": "LAGLIGHETSÖVERVAKNING", "hao": "FÖRVALTNINGSDOMSTOLARNA", "muut": "ÖVRIGA DOMSTOLAR",
-                  "kilpailu": "KONKURRENSRÄTT", "fiva": "FINANSINSPEKTIONEN", "tsv": "DATASKYDD", "he": "REGERINGENS PROPOSITIONER", "lausunnot": "REMISSER"},
-           "en": {"kko": "SUPREME COURT", "eu": "COURT OF JUSTICE OF THE EU", "eit": "EUROPEAN COURT OF HUMAN RIGHTS", "icj": "INTERNATIONAL COURT OF JUSTICE",
-                  "kho": "SUPREME ADMINISTRATIVE COURT", "laillisuus": "OVERSIGHT OF LEGALITY", "hao": "ADMINISTRATIVE COURTS", "muut": "OTHER COURTS",
-                  "kilpailu": "COMPETITION LAW", "fiva": "FINANCIAL SUPERVISION", "tsv": "DATA PROTECTION", "he": "GOVERNMENT BILLS", "lausunnot": "CONSULTATIONS"}}
-CH_SHORT_FI = {"kko": "KKO", "eu": "EUT", "eit": "EIT", "icj": "ICJ", "kho": "KHO", "laillisuus": "LV", "hao": "HAO", "muut": "MUUT", "kilpailu": "KILP",
-               "fiva": "FIVA", "tsv": "TSV", "he": "HE", "lausunnot": "LAUS"}
-SHORT_ORG = {'Sisäministeriö': 'SM', 'Maa- ja metsätalousministeriö': 'MMM', 'Oikeusministeriö': 'OM', 'Valtiovarainministeriö': 'VM', 'Sosiaali- ja terveysministeriö': 'STM', 'Työ- ja elinkeinoministeriö': 'TEM', 'Ympäristöministeriö': 'YM', 'Opetus- ja kulttuuriministeriö': 'OKM', 'Liikenne- ja viestintäministeriö': 'LVM', 'Puolustusministeriö': 'PLM', 'Ulkoministeriö': 'UM', 'Valtioneuvoston kanslia': 'VNK', 'Oikeuskansleri': 'OKV', 'Apulaisoikeuskansleri': 'OKV', 'Eduskunnan oikeusasiamies': 'EOA', 'Apulaisoikeusasiamies': 'EOA', 'Finanssivalvonta': 'Fiva', 'Kilpailu- ja kuluttajavirasto': 'KKV', 'Tietosuojavaltuutettu': 'TSV', 'Apulaistietosuojavaltuutettu': 'TSV', 'Markkinaoikeus': 'MAO', 'Työtuomioistuin': 'TT', 'Korkein oikeus': 'KKO', 'Korkein hallinto-oikeus': 'KHO', 'Unionin tuomioistuin': 'EUT'}
-TOPIC_SHORT = {"fi": {"sote": "SOTE", "digi": "DIGI", "eu": "EU", "tyo": "TYÖ", "vero": "VERO", "tietosuoja": "TIETOSUOJA", "kilpailu": "KILPAILU",
-                      "rikos": "RIKOS", "maahanmuutto": "MAAHANM.", "ymparisto": "YMPÄRISTÖ", "asuminen": "ASUMINEN", "hallinto": "HALLINTO",
-                      "finanssi": "FINANSSI", "kuluttaja": "KULUTTAJA", "yhtio": "YHTIÖT", "perhe": "PERHE", "ihmisoikeudet": "IHMISOIK.",
-                      "turvallisuus": "TURVALL.", "koulutus": "KOULUTUS"},
-               "sv": {"sote": "VÅRD", "digi": "DIGI", "eu": "EU", "tyo": "ARBETE", "vero": "SKATT", "tietosuoja": "DATASKYDD", "kilpailu": "KONKURRENS",
-                      "rikos": "STRAFF", "maahanmuutto": "INVANDRING", "ymparisto": "MILJÖ", "asuminen": "BOENDE", "hallinto": "FÖRVALTN.",
-                      "finanssi": "FINANS", "kuluttaja": "KONSUMENT", "yhtio": "BOLAG", "perhe": "FAMILJ", "ihmisoikeudet": "MR", "turvallisuus": "SÄKERHET",
-                      "koulutus": "UTBILDNING"},
-               "en": {"sote": "HEALTH", "digi": "DIGI", "eu": "EU", "tyo": "WORK", "vero": "TAX", "tietosuoja": "DATA", "kilpailu": "ANTITRUST",
-                      "rikos": "CRIME", "maahanmuutto": "MIGRATION", "ymparisto": "ENVIRON.", "asuminen": "HOUSING", "hallinto": "ADMIN",
-                      "finanssi": "FINANCE", "kuluttaja": "CONSUMER", "yhtio": "COMPANIES", "perhe": "FAMILY", "ihmisoikeudet": "RIGHTS",
-                      "turvallisuus": "SECURITY", "koulutus": "EDUCATION"}}
-TOPIC_PAGE = {k: 851 + i for i, k in enumerate(TOPIC_SHORT["fi"])}
 SELITE_SV = {"annettu": "meddelad", "tiedote": "meddelande", "päätös": "beslut", "tuomio": "dom", "ratkaisu": "avgörande", "julkaistu": "publicerad",
              "esitys": "proposition", "kanne": "talan", "suullinen käsittely": "muntlig förhandling", "uutisoitu": "rapporterad",
              "päätös tiedotettu": "beslut meddelat", "lausunto": "utlåtande"}
@@ -506,7 +486,7 @@ def _tx(it, f, lang):
 
 
 def item_rows(it, kanava, d, lang="fi"):
-    """Juttusivun rivimäärä kielellä lang (sama laskenta kuin sivun buildItem); 23 = mahtuu yhdelle sivulle."""
+    """Tiivistelmäsivun (1/2) rivimäärä kielellä lang (sama laskenta kuin sivun buildItem); enintään 23 = mahtuu yhdelle sivulle."""
     sfx = "" if lang == "fi" else "_" + lang
     fdate = lambda iso, short=False: (lambda m: (f"{int(m.group(3))}.{int(m.group(2))}." if short else f"{int(m.group(3))}.{int(m.group(2))}.{m.group(1)}") if m else "")(re.match(r"(\d{4})-(\d{2})-(\d{2})", str(iso or "")))
     norm = lambda x: re.sub(r"\s+", " ", str(x or "")).strip().lower()
@@ -520,21 +500,11 @@ def item_rows(it, kanava, d, lang="fi"):
         when = ""
     rows = 1 + 2 * min(2, len(tt_wrap(_tx(it, "otsikko", lang))))          # kaista + otsikko
     rows += 1 if (not when or len(tun) + 2 + len(when) <= 38) else 2         # tunnusrivi(t)
-    top_end = rows
     if it.get("maaraaika"):
-        rows += 1
-    if kanava == "he" and any(h.get("he") == (it.get("tunnus") or it.get("id")) for h in d.get("he_tila") or []):
         rows += 1
     if it.get("vaihe"):
         rows += 1
-    elin = _tx(it, "elin", lang); chn = norm(CH_NAME[lang].get(kanava, "")); body0 = rows
-    if elin and norm(it.get("elin")) not in norm(it.get("tunnus") or it.get("id")) and norm(elin) not in chn and norm(it.get("elin")) not in chn \
-            and norm(SHORT_ORG.get(it.get("elin") or "", "")) != norm(CH_SHORT_FI.get(kanava, "")):
-        rows += 1
-    if it.get("asiasanat") and not str(it.get("tekstityyppi") or "").startswith("asiasan"):
-        rows += 1
-    if rows > top_end:
-        rows += 1                                                             # tyhjä (sivu pudottaa tyhjän rivin, jos se olisi lohkon ensimmäinen)
+    rows += 1                                                                 # tyhjä
     if lang != "fi" and it.get("teksti") and not it.get("teksti" + sfx):
         rows += 1                                                             # "Texten finns endast på finska"
     rows += len(tt_wrap(_tx(it, "teksti", lang)))
@@ -542,18 +512,9 @@ def item_rows(it, kanava, d, lang="fi"):
         rows += len(tt_wrap(("LOPPUTULOS: " if lang == "fi" else "UTGÅNG: " if lang == "sv" else "OUTCOME: ") + _tx(it, "lopputulos", lang)))
     if it.get("huom"):
         rows += len(tt_wrap(_tx(it, "huom", lang)))
-    rows += 2                                                                 # tyhjä + tyyppirivi
-    tags = [k for k in (it.get("aiheet") or []) if k in TOPIC_SHORT["fi"]]
-    if tags:                                                                  # aiheet-rivi(t): "AIHEET SOTE 851  DIGI 852 …"
-        n, col = 1, 8
-        for k in tags:
-            t = f"{TOPIC_SHORT[lang][k]} {TOPIC_PAGE[k]}"
-            if col + len(t) > 39:
-                n += 1; col = 8
-            col += len(t) + 2
-        rows += n
-    rows += 1                                                                 # toimintorivi
-    return rows + 1                                                           # lähderivi
+    if it.get("lainvoimainen") is False:
+        rows += 1
+    return rows + 1                                                           # vihjerivi (lisätiedot, lähde ja seuranta)
 
 def validate(d):
     E, W = [], []
@@ -567,7 +528,6 @@ def validate(d):
         E.append(f"kanavat-avaimet väärin: {sorted(kan or {})}")
         kan = kan or {}
     ids, limit, tunnukset = set(), now() + datetime.timedelta(minutes=15), {}
-    over_old = []   # vanhat (ennen ONE_PAGE_SINCE lisätyt) jutut, jotka eivät mahdu yhdelle sivulle: vain yhteenveto
     for k, lst in kan.items():
         if len(lst) > MAX_ITEMS:
             E.append(f"{k}: {len(lst)} kohdetta (max {MAX_ITEMS})")
@@ -602,6 +562,9 @@ def validate(d):
                 E.append(f"{p}: otsikko {len(o)} merkkiä (max 35)")
             if o != o.upper():
                 E.append(f"{p}: otsikko ei ole ISOILLA")
+            for f, v in (("otsikko", o), ("otsikko_sv", it.get("otsikko_sv") or ""), ("otsikko_en", it.get("otsikko_en") or "")):
+                if re.search(r"([,:;\-–]|\b(JA|TAI|SEKÄ|ETTÄ|OCH|ELLER|AND|OR|OF|FOR|TO))$", v.strip()):
+                    W.append(f"{p}: {f} näyttää katkenneelta ({v!r}) – muotoile kokonaiseksi ≤35 merkin otsikoksi")
             strict = str(it.get("lisatty") or "") >= ONE_PAGE_SINCE      # uudet jutut: sanarajat ja yhden sivun budjetti ovat virheitä
             if strict and words(it.get("teksti")) > TEKSTI_MAX["fi"]:
                 E.append(f"{p}: teksti {words(it.get('teksti'))} sanaa (max {TEKSTI_MAX['fi']})")
@@ -612,12 +575,12 @@ def validate(d):
             for lang in ("fi", "sv", "en"):
                 need = item_rows(it, k, d, lang)
                 if need > 23:
-                    msg = f"{p}: {lang}: juttusivu {need} riviä, yhdelle sivulle mahtuu 23 – lyhennä teksti{'' if lang == 'fi' else '_' + lang}" \
+                    msg = f"{p}: {lang}: tiivistelmäsivu {need} riviä, sivulle mahtuu 23 – lyhennä teksti{'' if lang == 'fi' else '_' + lang}" \
                           f" ({words(_tx(it, 'teksti', lang))} sanaa){' tai lopputulos' if it.get('lopputulos') else ''}"
                     if strict:
-                        E.append("YLI SIVUN " + msg)
+                        E.append("YLI SIVUN " + msg)   # uusi juttu: ei julkaista ennen kuin mahtuu
                     else:
-                        over_old.append(msg)
+                        W.append("LYHENNÄ " + msg)     # vanha juttu: sivu näyttää vain sivulle mahtuvat kokonaiset virkkeet; ajo lyhentää tekstin
             a = it.get("aiheet") or []
             if not isinstance(a, list) or not a or not set(a) <= AIHEET or len(a) > 3 or len(set(a)) != len(a):
                 E.append(f"{p}: aiheet {a} (1–3 eri sallittua avainta)")
@@ -767,8 +730,6 @@ def validate(d):
         datetime.datetime.fromisoformat(d.get("paivitetty") or "")
     except ValueError:
         E.append("paivitetty ei ole ISO-aika")
-    if over_old:
-        W.append(f"{len(over_old)} ennen {ONE_PAGE_SINCE} lisättyä juttua ei mahdu yhdelle sivulle (jakautuvat alasivuihin; poistuvat ajan myötä, ei korjata)")
     return E, W
 
 
@@ -1009,7 +970,7 @@ def src_curia(days=10):
     out, seen = [], set()
     for b in res["results"]["bindings"]:
         celex = b["celex"]["value"]
-        if celex in seen:
+        if celex in seen or b["date"]["value"][:10] > now().date().isoformat():   # tulevan antopäivän merkintä ei ole vielä tuomio
             continue
         seen.add(celex)
         m = re.match(r"^6(\d{4})(CJ|TJ|CC)(\d{4})$", celex)

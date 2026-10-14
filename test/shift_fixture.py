@@ -18,5 +18,11 @@ s = re.sub(r"\d{4}-\d{2}-\d{2}", shift, s)
 d = json.loads(s)
 # päivitysaika: tänään klo 06.48, jotta "päivitys myöhässä" -varoitus ei laukea
 d["paivitetty"] = today.isoformat() + "T06:48:00+03:00"
+# testidatan jutut ovat yhden sivun mallia vanhempia: siirretty lisatty ei saa tehdä niistä "uusia" (tiukat sanarajat, YLI SIVUN -virhe)
+cap = (datetime.date.fromisoformat(L.ONE_PAGE_SINCE) - datetime.timedelta(days=1)).isoformat() + "T06:50"
+for lst in d["kanavat"].values():
+    for it in lst:
+        if str(it.get("lisatty") or "") >= L.ONE_PAGE_SINCE:
+            it["lisatty"] = cap
 json.dump(d, open(B + "test/fixture_data.json", "w", encoding="utf-8"), ensure_ascii=False)
 print(f"fixture: +{delta} pv")

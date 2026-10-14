@@ -9,7 +9,7 @@ gist.github.com kulkee sen ohi. Tavallinen varasto `omistaja/nimi` toimii muissa
 
 | Osa | Mitä saa tehdä | Millä oikeudella |
 |---|---|---|
-| Päivitysajo (agentti) | työntää `data.json`-tiedoston gistiin | classic token, jolla on vain gist-oikeus (ei repo- eikä tilioikeuksia); `tools/ghpush.py` kieltäytyy muista tiedostoista ja tunnuksilta näyttävästä sisällöstä |
+| Päivitysajo (agentti) | työntää `data.json`-tiedoston gistiin | classic token, jolla on vain gist-oikeus (ei repo- eikä tilioikeuksia); `tools/ghpush.py` kieltäytyy muista tiedostoista, tunnuksilta näyttävästä sisällöstä ja datasta, joka ei läpäise `validate`-tarkistusta |
 | Koodivarasto (tämä) | rakentaa ja julkaisee sivuston | vain omistaja työntää koodia (GitHub Desktop); Actions-oikeudet vain lukuun ja Pages-julkaisuun |
 | Actions-työnkulku `pages.yml` | hakee datan gististä kaksi kertaa tunnissa, tarkistaa sen (`validate`) ja julkaisee, jos data on uudempi kuin sivustolla | ei tunnuksia; gistin raw-osoite on luettavissa ilman kirjautumista |
 | Sivun suora data | julkaistu sivu hakee itse gistin uusimman `data.json`-tiedoston ja näyttää sen, jos se on uudempi kuin sivuston kopio | ei tunnuksia; vain rakennetarkistuksen läpäisevä ja vähintään puolet nykyisestä juttumäärästä sisältävä data kelpaa |

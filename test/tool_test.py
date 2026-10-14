@@ -1,5 +1,5 @@
 """Työkalun regressiotestit (ei verkkoa: verkkohaut korvataan)."""
-import sys, json, copy, datetime, subprocess, os, re
+import sys, shutil, json, copy, datetime, subprocess, os, re
 import os as _os
 _ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # varaston juuri
 _FONTS = _os.path.join(_ROOT, 'fonts') if _os.path.isdir(_os.path.join(_ROOT, 'fonts')) else _os.path.join(_ROOT, '..', 'fonts')
@@ -198,7 +198,7 @@ finally: L.fetch = orig
 import shutil, tempfile
 GH = B + "tools/ghpush.py"
 td = tempfile.mkdtemp(prefix="ghpush-test-"); env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
-def sh(*a, **k): return subprocess.run(a, capture_output=True, text=True, cwd=td, env={**env, **k.get("env", {})})
+def sh(*a, **k): return subprocess.run([x for x in a] + (["--no-validate"] if list(a[1:2]) == [GH] and "--no-validate" not in a and "gist:xyz" not in a else []), capture_output=True, text=True, cwd=td, env={**env, **k.get("env", {})})
 sh("git", "init", "-q", "--bare", "remote.git"); sh("git", "clone", "-q", "remote.git", "seed")
 seed = td + "/seed"
 subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "checkout", "-q", "-b", "main"], cwd=seed, capture_output=True)
@@ -221,6 +221,14 @@ ok(r.returncode != 0 and "GITHUB_TOKEN" in (r.stderr + r.stdout), "ghpush: avain
 r = sh(sys.executable, GH, "omistaja/ei-ole", "--remote", "https://127.0.0.1:9/ei.git", "data.json=data.json", env={"GITHUB_TOKEN": "github_pat_SALAINEN_EI_SAA_NAKYA"})
 ok(r.returncode != 0 and "SALAINEN" not in (r.stderr + r.stdout), "ghpush: avain ei vuoda virheilmoitukseen", (r.stderr + r.stdout)[-160:])
 ok(not any(n.startswith("ghpush-cred-") for n in os.listdir(tempfile.gettempdir())), "ghpush: credential helper siivotaan")
+# validate-portti: virheellinen data ei lähde datavarastoon; kelvollinen data (nykyinen) läpäisee
+shutil.copy(B + "tools/lakitv.py", td + "/lakitv.py")
+bad = json.load(open(B + "data.json", encoding="utf-8")); bad["kanavat"]["kko"][0]["paino"] = "x"
+json.dump(bad, open(td + "/bad.json", "w", encoding="utf-8"), ensure_ascii=False)
+r = subprocess.run([sys.executable, GH, "omistaja/laki-tv-data", "--remote", td + "/remote.git", "--dry-run", "bad.json=data.json"], capture_output=True, text=True, cwd=td, env=env)
+ok(r.returncode != 0 and "validate hylkäsi" in (r.stderr + r.stdout) and "paino" in (r.stderr + r.stdout), "ghpush: validate-virhe estää työnnön", (r.stderr + r.stdout)[-200:])
+r = subprocess.run([sys.executable, GH, "omistaja/laki-tv-data", "--remote", td + "/remote.git", "--dry-run", B + "data.json=data.json"], capture_output=True, text=True, cwd=td, env=env)
+ok(r.returncode == 0 and "validate hylkäsi" not in (r.stderr + r.stdout), "ghpush: kelvollinen data läpäisee validate-portin", (r.stderr + r.stdout)[-200:])
 # gist-kohde: osoite gist.github.com, muotovaatimus, ja haaran automaattinen tunnistus (master-haarainen varasto)
 sys.path.insert(0, B + "tools"); import ghpush as GP
 ok(GP.repo_url("gist:0123456789abcdef0123") == "https://gist.github.com/0123456789abcdef0123.git" and GP.repo_url("a/b") == "https://github.com/a/b.git"

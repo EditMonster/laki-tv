@@ -1,8 +1,10 @@
 import base64, json, re, subprocess
 tpl = open('part_css.html').read() + open('part_body.html').read() + open('part_js.html').read()
 open('template.html', 'w').write(tpl)
-f1 = base64.b64encode(open('fonts/bedstead-sub.woff2', 'rb').read()).decode()
-f2 = base64.b64encode(open('fonts/lakicaps-sub.woff2', 'rb').read()).decode()
+import os
+FONTS = 'fonts' if os.path.isdir('fonts') else '../fonts'   # varastossa fonts/, työkopiossa ../fonts/
+f1 = base64.b64encode(open(f'{FONTS}/bedstead-sub.woff2', 'rb').read()).decode()
+f2 = base64.b64encode(open(f'{FONTS}/lakicaps-sub.woff2', 'rb').read()).decode()
 data = json.load(open('data.json'))
 js = json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/').replace('<!--', '<\\u0021--')
 out = tpl.replace('__FONT_B64__', f1).replace('__FONT2_B64__', f2).replace('__DATA__', js)

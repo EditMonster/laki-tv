@@ -98,6 +98,25 @@ class GH:
         return json.loads(r.stdout or "null")
 
 
+def check_data(files):
+    """Ajaa lakitv.py validate jokaiselle työnnettävälle data.json-tiedostolle, jos työkalu löytyy samasta kansiosta
+    tai työhakemistosta. Virheet estävät työnnön: datavaraston sisältö päätyy lukijalle suoraan ilman muita portteja."""
+    tool = next((c for c in (os.path.join(os.path.dirname(os.path.abspath(__file__)), "lakitv.py"), "lakitv.py", os.path.join("tools", "lakitv.py")) if os.path.isfile(c)), None)
+    data = {dst: d for dst, d in files.items() if os.path.basename(dst) == "data.json"}
+    if not tool or not data:
+        return
+    for dst, d in data.items():
+        with tempfile.NamedTemporaryFile("wb", suffix=".json", delete=False) as f:
+            f.write(d); tmp = f.name
+        try:
+            r = subprocess.run([sys.executable, tool, "validate", tmp], capture_output=True, text=True)
+        finally:
+            os.unlink(tmp)
+        if r.returncode != 0:
+            tail = "\n".join(l for l in (r.stdout + r.stderr).splitlines() if l.startswith("VIRHE") or "virhettä" in l)[-1500:]
+            raise SystemExit(f"validate hylkäsi tiedoston {dst}: ei työnnetty\n{tail}")
+
+
 def push_api(repo, branch, message, files, token, dry):
     gh = GH(repo, token); R = f"/repos/{repo}"
     head = gh.call("GET", f"{R}/git/ref/heads/{branch}")["object"]["sha"]
@@ -223,6 +242,7 @@ def main():
     ap.add_argument("--remote", help="git-osoite (oletus https://github.com/OMISTAJA/VARASTO.git)")
     ap.add_argument("--allow", action="append", help="sallittu kohdepolku tai kansio/ (oletus: vain data.json)")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--no-validate", action="store_true", help="älä aja lakitv.py validate -tarkistusta data.json-tiedostoille")
     a = ap.parse_args()
     if not re.fullmatch(r"[\w.-]+/[\w.-]+|gist:[0-9a-fA-F]{8,}", a.repo):
         raise SystemExit("varasto muodossa omistaja/nimi tai gist:tunnus")
@@ -232,6 +252,8 @@ def main():
     if not files:
         raise SystemExit("ei tiedostoja")
     guard(files, a.allow or ALLOW_DEFAULT)
+    if not a.no_validate:
+        check_data(files)   # virheellinen data ei lähde datavarastoon (sivusto hakee sen suoraan lukijalle)
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if a.remote and re.search(r"://[^/]*:[^/@]+@", a.remote):
         raise SystemExit("älä laita avainta --remote-osoitteeseen; anna se ympäristömuuttujassa GITHUB_TOKEN")

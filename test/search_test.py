@@ -60,3 +60,4 @@ with sync_playwright() as p:
     m.screenshot(path="test/search_mob.png")
     b.close()
 print(f"{ok} / {ok+fail} OK")
+import sys as _sys; _sys.exit(1 if fail else 0)

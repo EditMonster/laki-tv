@@ -177,7 +177,7 @@ with sync_playwright() as p:
     e3 = []; pg3.on("pageerror", lambda e: e3.append(str(e)))
     pg3.goto("file:///tmp/t_page.html#p201"); pg3.wait_for_timeout(500); pg3.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg3.wait_for_timeout(300)
     alltxt = pg3.evaluate("""() => { const L = window.LAKITV; let t = ''; const n = L.getPage(201).subs.length; for (let s = 0; s < n; s++) { L.show(201, s); t += [...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n'); } return t; }""")
-    check("palauterivi osoittaa GitHub-issueihin", "ILMOITA VIRHEESTÄ" in alltxt and any(h.startswith("https://github.com/") and h.endswith("/issues") for h in pg3.evaluate("[...document.querySelectorAll('#rows a[href]')].map(a => a.href)")), alltxt[-200:])
+    check("palauterivi osoittaa GitHub-issueihin", "PALAUTE" in alltxt and any(h.startswith("https://github.com/") and h.endswith("/issues") for h in pg3.evaluate("[...document.querySelectorAll('#rows a[href]')].map(a => a.href)")), alltxt[-200:])
     check("ei JS-virheitä", not errs and not e2 and not e3, errs + e2 + e3)
     b.close()
 print(f"{sum(ok)} / {len(ok)} OK")

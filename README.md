@@ -26,7 +26,7 @@
 | 851–869 | Aiheet (sote, tietosuoja, työ, vero, …) |
 | 888 | Viimeksi avattu juttu selkeällä kielellä |
 
-Jokaisella jutulla on virallinen tiivistelmä tai neutraali referaatti, selkokielinen versio, aiheet ja linkki viralliseen lähteeseen. Lukija voi **seurata asiaa** (HE:n käsittelyvaihe, EIT-jutun vaihe, lausuntoajan määräaika) ja **lisätä määräajan kalenteriinsa** itse – Google, Outlook, .ics tai tilattava kalenteriosoite. Mitään ei lisätä automaattisesti.
+Jokaisella jutulla on virallinen tiivistelmä tai neutraali referaatti (enintään 40 sanaa: juttu mahtuu yhdelle teksti-TV-sivulle, ja `validate` laskee saman rivibudjetin kuin sivu), selkokielinen versio, aiheet ja linkki viralliseen lähteeseen. Lukija voi **seurata asiaa** (HE:n käsittelyvaihe, EIT-jutun vaihe, lausuntoajan määräaika) ja **lisätä määräajan kalenteriinsa** itse – Google, Outlook, .ics tai tilattava kalenteriosoite. Mitään ei lisätä automaattisesti.
 
 Sivu ei kerää lukijoista mitään: ei evästeitä, ei tunnisteita, ei analytiikkaa, ei kolmansien osapuolten palveluita (sivusto hakee vain omat juttunsa GitHubista, jossa se myös sijaitsee). Omat aiheet ja seurannat tallentuvat vain lukijan selaimeen.
 

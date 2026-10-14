@@ -30,7 +30,7 @@ with sync_playwright() as p:
     check("juttusivu: SEURAA ASIAA ja KALENTERIIN", "SEURAA ASIAA" in t and "KALENTERIIN" in t, t[-300:])
     pg.click("a[data-act='seuraa']"); pg.wait_for_timeout(400)
     fl = pg.evaluate("window.LAKITV.followList()")
-    check("seuraa: tallentuu ja näkyy", len(fl) == 1 and fl[0]["id"] == laus["id"] and fl[0]["tila"] == "dl:" + laus["maaraaika"] and "SEURANNASSA · LOPETA" in rows(pg), fl)
+    check("seuraa: tallentuu ja näkyy", len(fl) == 1 and fl[0]["id"] == laus["id"] and fl[0]["tila"] == "dl:" + laus["maaraaika"] and "LOPETA SEURANTA" in rows(pg), fl)
     pg.evaluate("window.LAKITV.go(108)"); pg.wait_for_timeout(300)
     t = rows(pg)
     check("108: seurattu juttu, ei muutoksia", "EI MUUTOKSIA" in t and laus["otsikko"] in t and "DL " in t, t[:400])

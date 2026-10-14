@@ -1018,13 +1018,14 @@ function buildChannel(ch, ci) {
   });
 }
 
+/* Tekstin alkuperä juttusivun tyyppirivillä (≤24 merkkiä). Ruotsin- ja englanninkieliset tekstit ovat tekoälyn käännöksiä (ohje 199). */
 const TYPE_LABEL = {
-  "virallinen tiivistelmä": w => S(`Virallinen tiivistelmä, ${w} sanaa`, "Off. sammandrag, AI-översatt", "Official summary, AI-translated"),
-  "tiivistelmä": w => S(`Tekoälyn tiivistelmä, ${w} sanaa`, `AI-sammandrag, ${w} ord`, `AI summary, ${w} words`),
-  "asiasanat": () => S("Vain asiasanat saatavilla", "Endast sökord tillgängliga"),
-  "asiasanoista koottu": () => S("Vain asiasanat saatavilla", "Endast sökord tillgängliga"),
-  "nimike": () => S("Nimike, sisältö tulossa", "Rubrik, innehåll kommer"),
-  "tiedotteen mukaan": () => S("Tekoälyn tiivistelmä tiedotteesta", "AI-sammandrag av meddelandet")
+  "virallinen tiivistelmä": () => S("Virallinen tiivistelmä", "Officiellt sammandrag", "Official summary"),
+  "tiivistelmä": () => S("Tekoälyn tiivistelmä", "AI-sammandrag", "AI summary"),
+  "asiasanat": () => S("Vain asiasanat", "Endast sökord", "Keywords only"),
+  "asiasanoista koottu": () => S("Vain asiasanat", "Endast sökord", "Keywords only"),
+  "nimike": () => S("Nimike, sisältö tulossa", "Rubrik, innehåll kommer", "Title only"),
+  "tiedotteen mukaan": () => S("Tiivistelmä tiedotteesta", "Sammandrag av meddelandet", "Summary of the release")
 };
 const VK_SV = {LaV:"LaU", PeV:"GrU", HaV:"FvU", TaV:"EkU", YmV:"MiU", StV:"ShU", TyV:"AjU", VaV:"FiU", SiV:"KuU", LiV:"KoU",
   MmV:"JsU", PuV:"FöU", UaV:"UtU", TuV:"FrU", TrV:"ReU", SuV:"StoU"};
@@ -1327,11 +1328,16 @@ function buildJakelu() {
 
 /* Juttusivu. opts.arch = arkistojuttu sivulla 105 (kanavalta jo poistunut). */
 function buildItem(ch, it, idx, count, opts = {}) {
+  /* Juttusivu on suunniteltu mahtumaan yhdelle sivulle (23 riviä): kaista, otsikko (2), tunnusrivi, asiasanat (1), tyhjä, teksti,
+     lopputulos, tyhjä, tyyppirivi, aiheet, toimintorivi, lähderivi. validate (lakitv.py) laskee saman rivibudjetin ja pyytää
+     lyhentämään tekstiä, jos se ei mahdu. Jos juttu silti ylittää sivun (vanhat jutut), compose jakaa sen alasivuihin. */
   const arch = !!opts.arch;
   const num = arch ? 105 : ch.page + idx + 1;
   const heads = wrap(tx(it, "otsikko"), 38).slice(0, 2);
   const tun = showTun(it.tunnus || it.id);
-  const when = it.pvm ? `${seliteOf(it)} ${fmtDate(it.pvm)}` : "";
+  const norm = s => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  let when = it.pvm ? `${seliteOf(it)} ${fmtDate(it.pvm)}` : "";
+  if (when && norm(tun).includes(norm(when))) when = "";   // tunnus sisältää jo päivän (esim. "TEM tiedote 30.9.2026")
   const metaRows = [];
   if (when && chars(tun).length + 2 + chars(when).length <= 38) {
     const r = blank(); put(r, 1, tun, "c"); putR(r, 38, when, "w"); metaRows.push(r);
@@ -1339,13 +1345,15 @@ function buildItem(ch, it, idx, count, opts = {}) {
     const r = blank(); put(r, 1, trunc(tun, 38), "c"); metaRows.push(r);
     if (when) { const r2 = blank(); put(r2, 1, when, "w"); metaRows.push(r2); }
   }
+  const fresh = isFresh(it);
   const top = (i, n) => {
     const band = blank(ch.bg);
     const nm = ch.name.startsWith(ch.short) ? ch.name : `${ch.short}  ${ch.name}`;
-    put(band, 1, trunc(arch ? `${S("ARKISTO", "ARKIV")} · ${nm}` : nm, 32), ch.fg, ch.bg);
+    put(band, 1, trunc(arch ? `${S("ARKISTO", "ARKIV")} · ${nm}` : nm, fresh ? (n > 1 ? 26 : 32) : 32), ch.fg, ch.bg);
+    if (fresh) put(band, n > 1 ? 31 : 35, S("UUSI", "NY"), ch.fg, ch.bg, {fl:true});   // uusi juttu: merkki kaistalla, ei omaa riviä
     indicator(band, i, n, ch.fg, ch.bg);
     const hs = heads.flatMap(h => { const r = blank(); put(r, 1, h, "y"); return dh(r); });
-    return [band, ...hs, ...metaRows, blank()];
+    return [band, ...hs, ...metaRows];
   };
   const body = [];
   if (it.maaraaika) {
@@ -1362,44 +1370,52 @@ function buildItem(ch, it, idx, count, opts = {}) {
     putR(r, 38, "720", "y"); linkRow(r, 720); body.push(r);
   }
   if (it.vaihe) { const r = blank(); put(r, 1, S("VAIHE", "SKEDE"), "c"); put(r, 8, trunc(tx(it, "vaihe"), 31), /^Vireill|^Pågå|^Anhängig|^Pending/.test(tx(it, "vaihe")) ? "y" : "w"); body.push(r); }
-  const elin = tx(it, "elin");
-  if (elin && !String(it.tunnus || it.id).includes(it.elin || "")) body.push(...textRows(elin, "m"));
-  if (it.asiasanat && !/^asiasan/.test(it.tekstityyppi || "")) body.push(...textRows(tx(it, "asiasanat"), "g"), gap());
-  else if (body.length) body.push(gap());
+  /* Elin vain, jos se ei jo lue tunnuksessa tai kanavan nimessä (esim. KKO: "Korkein oikeus" olisi toistoa) */
+  const elin = tx(it, "elin"), abbr = SHORT_ORG[it.elin] || "";
+  if (elin && !norm(it.tunnus || it.id).includes(norm(it.elin)) && !norm(ch.name).includes(norm(elin)) && !norm(ch.name).includes(norm(it.elin))
+      && norm(abbr) !== norm(ch.fi.short)) body.push(line(trunc(elin, 38), "c"));   // syaani = metatieto (magenta jää huomautuksille ja suodattimelle)
+  if (it.asiasanat && !/^asiasan/.test(it.tekstityyppi || "")) body.push(line(trunc(tx(it, "asiasanat"), 38), "g"));   // yksi rivi: tärkeimmät asiasanat ensin
+  body.push(gap());
   if (fiOnly(it, "teksti")) body.push(line(ONLY_FI(), "m"));
   body.push(...textRows(tx(it, "teksti"), "w"));
-  if (it.lopputulos) { body.push(gap(), head(S("LOPPUTULOS", "UTGÅNG"), "y"), ...textRows(tx(it, "lopputulos"), "c")); }
-  if (it.huom) body.push(gap(), ...textRows(tx(it, "huom"), "m"));
+  if (it.lopputulos) body.push(...textRows(`${S("LOPPUTULOS", "UTGÅNG", "OUTCOME")}: ${tx(it, "lopputulos")}`, "c"));
+  if (it.huom) body.push(...textRows(tx(it, "huom"), "m"));
   body.push(gap());
-  const w = wordCount(tx(it, "teksti"));
-  const lab = fiOnly(it, "teksti") ? S("", "Text på finska", "Text in Finnish") : (TYPE_LABEL[it.tekstityyppi] || (x => `${it.tekstityyppi ? it.tekstityyppi + ", " : ""}${x} ${S("sanaa", "ord", "words")}`))(w);
-  const info = blank(); put(info, 1, trunc(lab, 34), "g");
-  if (isFresh(it)) put(info, 36, S("UUSI", "NY"), "r", null, {fl:true});
+  /* Tyyppirivi: mistä teksti on peräisin; oikealla julkaisuhetki tai lainvoimahuomautus */
+  const lab = fiOnly(it, "teksti") ? S("", "Text på finska", "Text in Finnish") : (TYPE_LABEL[it.tekstityyppi] || TYPE_LABEL.tiivistelmä)();
+  const info = blank(); put(info, 1, trunc(lab, 24), "g");
+  if (it.lainvoimainen === false) putR(info, 38, S("EI LAINVOIMAINEN", "EJ LAGA KRAFT", "NOT FINAL"), "r");
+  else if (it.julkaistu && (dayOf(it) !== (it.pvm || "") || clockOf(it))) putR(info, 38, `${fmtDate(dayOf(it), true)} ${clockOf(it).replace(/^(klo|kl\.|at) /, "")}`.trim(), "g");
   body.push(info);
-  if (it.julkaistu && (dayOf(it) !== (it.pvm || "") || clockOf(it))) body.push(line(`${S("Julkaistu", "Publicerad")} ${fmtDate(dayOf(it))} ${clockOf(it)}`.trim(), "g"));
-  if (it.lainvoimainen === false) body.push(line(S("EI LAINVOIMAINEN", "HAR INTE VUNNIT LAGA KRAFT"), "r"));
   body.push(...topicRows(it.aiheet));
   const actStart = body.length;
-  if (it.selko && !arch) { const r = blank(); put(r, 1, S("SELKEÄLLÄ KIELELLÄ", "PÅ KLARSPRÅK"), "c"); putR(r, 38, "888", "y"); linkRow(r, 888); body.push(r); }
-  { const r = blank(); const fol = isFollowed(it.id);
-    put(r, 1, fol ? S("SEURANNASSA · LOPETA", "BEVAKAS · AVSLUTA", "FOLLOWING · STOP") : S("SEURAA ASIAA", "BEVAKA ÄRENDET", "FOLLOW THIS ITEM"), fol ? "g" : "y", null, {act:"seuraa", arg:it.id});
+  if (!arch) {   // toimintorivi: seuranta vasemmalla, kalenteri (tai seurantalista 108) oikealla
+    const r = blank(); const fol = isFollowed(it.id);
+    put(r, 1, fol ? S("LOPETA SEURANTA", "AVSLUTA BEVAKNING", "STOP FOLLOWING") : S("SEURAA ASIAA", "BEVAKA ÄRENDET", "FOLLOW THIS ITEM"), fol ? "g" : "y", null, {act:"seuraa", arg:it.id});
+    const ev = kalItemEvent(ch, it);
+    if (ev && ev.pvm >= todayISO()) putR(r, 38, `${S("KALENTERIIN", "KALENDER", "CALENDAR")} ${fmtDate(ev.pvm, true)}`, "c", null, {act:"kal", arg:(it.maaraaika ? "dl:" : "vt:") + it.id});
+    else if (fol) putR(r, 38, "108", "y", null, {p:108});
+    body.push(r);
+  } else {
+    const r = blank(); const fol = isFollowed(it.id);
+    put(r, 1, fol ? S("LOPETA SEURANTA", "AVSLUTA BEVAKNING", "STOP FOLLOWING") : S("SEURAA ASIAA", "BEVAKA ÄRENDET", "FOLLOW THIS ITEM"), fol ? "g" : "y", null, {act:"seuraa", arg:it.id});
     if (fol) putR(r, 38, "108", "y", null, {p:108});
-    body.push(r); }
-  { const ev = kalItemEvent(ch, it);
-    if (ev && ev.pvm >= todayISO()) { const r = blank(); put(r, 1, `${S("KALENTERIIN", "TILL KALENDERN", "ADD TO CALENDAR")} ${fmtDate(ev.pvm)}`, "c", null, {act:"kal", arg:(it.maaraaika ? "dl:" : "vt:") + it.id}); body.push(r); } }
-  if (SAFE_URL(FEEDBACK_URL)) { const r = blank(); put(r, 1, S("ILMOITA VIRHEESTÄ", "ANMÄL ETT FEL", "REPORT AN ERROR"), "g", null, {h:FEEDBACK_URL}); body.push(r); }
+    body.push(r);
+    body.push(gap(), ...textRows(S("Juttu on poistunut kanavalta, ja se säilyy arkistossa 35 päivää.", "Nyheten har tagits bort från kanalen och sparas i arkivet i 35 dagar."), "g"));
+  }
   for (let i = Math.max(actStart - 1, 0); i < body.length - 1; i++) if (!body[i].blankLine) body[i].keepNext = true;   // toimintorivit samalle alasivulle
-  if (arch) body.push(gap(), ...textRows(S("Juttu on poistunut kanavalta, ja se säilyy arkistossa 35 päivää.", "Nyheten har tagits bort från kanalen och sparas i arkivet i 35 dagar."), "g"));
 
+  /* Lähderivi: virallinen lähde vasemmalla, palautelinkki oikealla (kanavalle pääsee värinäppäimestä) */
   const bot = blank();
-  if (it.lahde) put(bot, 1, S("LÄHDE ▶ ", "KÄLLA ▶ ") + trunc(domainOf(it.lahde), 24), "c", null, {h:it.lahde});
+  const fb = SAFE_URL(FEEDBACK_URL) ? S("PALAUTE ▶", "RESPONS ▶", "FEEDBACK ▶") : "";
+  const pre = S("LÄHDE ▶ ", "KÄLLA ▶ ", "SOURCE ▶ ");
+  if (it.lahde) put(bot, 1, pre + trunc(domainOf(it.lahde), 38 - chars(pre).length - chars(fb).length - (fb ? 1 : 0)), "c", null, {h:it.lahde});
+  if (fb) putR(bot, 38, fb, "g", null, {h:FEEDBACK_URL});
   let ft;
   if (arch) {
     const d = dayOf(it);
-    putR(bot, 38, "◀ 104", "y", null, {p:104, day:d});
     ft = [{t:S("◀ Päivä", "◀ Dag"), p:104, day:d}, {t:S("Kal. 103", "Kal. 103", "Cal. 103"), p:103}, {t:S("Vk 102", "V. 102"), p:102}, {t:S("Etusivu", "Start"), p:100}];
   } else {
-    putR(bot, 38, `◀ ${ch.page}`, "y", null, {p:ch.page});
     const prevP = idx > 0 ? num - 1 : ch.page;
     const nextP = idx < count - 1 ? num + 1 : ch.page;
     ft = [
@@ -1685,9 +1701,9 @@ function buildHelp() {
          "Pages 851–869 list items by topic from all channels. With the TOPICS key you choose your own topics: the channels, the home page and page 110 then show only items about them. The choice is stored only in this browser."),
     {pageBreak:true},
     head(S("SISÄLTÖ", "INNEHÅLL"), "y"),
-    ...P("Alle 100 sanan tekstit julkaistaan sellaisenaan. Pidemmät tiivistetään enintään 100 sanaan tekoälyn avulla, ja tiivistelmät on merkitty.",
-         "Texter under 100 ord publiceras som sådana. Längre texter sammanfattas med AI till högst 100 ord, och sammandragen är märkta.",
-         "Texts under 100 words are published as they are. Longer texts are summarised by AI to at most 100 words, and summaries are marked."),
+    ...P("Jokainen juttu mahtuu yhdelle sivulle. Enintään 40 sanan viralliset tiivistelmät julkaistaan sellaisenaan; muut tiivistetään tekoälyn avulla, ja tekstin alkuperä lukee jutun lopussa.",
+         "Varje nyhet ryms på en sida. Officiella sammandrag på högst 40 ord publiceras som sådana; övriga sammanfattas med AI, och textens ursprung anges i slutet av nyheten.",
+         "Every item fits on one page. Official summaries of up to 40 words are published as they are; others are summarised by AI, and the origin of the text is shown at the end of the item."),
     ...P("Uudet ratkaisut nousevat kanavan alkuun ja vanhimmat siirtyvät arkistoon, 9 uusinta kanavaa kohden. UUSI-merkki tarkoittaa, että juttu on julkaistu viimeisen 24 tunnin aikana.",
          "Nya avgöranden hamnar först på kanalen och de äldsta flyttas till arkivet, 9 per kanal. Märket NY betyder att nyheten publicerats under de senaste 24 timmarna.",
          "New decisions go to the top of the channel and the oldest move to the archive, 9 per channel. The NEW flag means the item was published in the last 24 hours."),

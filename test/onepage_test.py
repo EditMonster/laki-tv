@@ -7,6 +7,7 @@ _ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # varast
 import datetime as _dt, zoneinfo as _zi
 _FIXED = _dt.datetime.combine(_dt.datetime.now(_zi.ZoneInfo("Europe/Helsinki")).date(), _dt.time(21, 0), tzinfo=_zi.ZoneInfo("Europe/Helsinki"))
 spec = importlib.util.spec_from_file_location("lakitv", _os.path.join(_ROOT, "tools", "lakitv.py")); L = importlib.util.module_from_spec(spec); spec.loader.exec_module(L)
+L.ONE_PAGE_SINCE = "2099-01-01"   # testidatan jutut ovat yhden sivun mallia vanhempia
 ok = 0; fail = 0
 def check(name, cond, info=""):
     global ok, fail
@@ -44,6 +45,32 @@ with sync_playwright() as p:
     check(f"jokainen juttu on yksi sivu ja sillä on lähdetiedot ({n} juttu-kieliparia)", n > 100 and not subs_bad, subs_bad[:3])
     check("rivibudjetti vastaa sivun katkaisua", not diffs, diffs[:5])
     pg.evaluate("window.LAKITV.setLang('fi')"); pg.wait_for_timeout(150)
+
+    # 1b. rivitys ja suomen tavutus: sivun wrap() ja työkalun tt_wrap() antavat samat rivit kaikille teksteille kaikilla kielillä
+    texts = []
+    for k, items in D["kanavat"].items():
+        for it in items:
+            for lang in ("fi", "sv", "en"):
+                for fld in ("teksti", "otsikko", "lopputulos", "huom", "asiasanat", "selko"):
+                    v = L._tx(it, fld, lang)
+                    if v: texts.append((lang, it["id"], fld, v))
+    texts += [("fi", "x", "x", t) for t in ("EU-tuomioistuimen tietosuoja-asetuksen mukainen perusopetusasetuksen muuttamisesta.",
+              "KKO:2026:76 Oy:ltä, 619/2026 (lausuntoja) kauan aie koe asia ja", "a" * 45 + " " + "hyvinvointialueet" * 3)]
+    bad = []
+    for lang, i, fld, v in texts:
+        pg.evaluate(f"window.LAKITV.setLang('{lang}')")
+        js = pg.evaluate("(t) => window.LAKITV.wrap(t, 38)", v)
+        py = L.tt_wrap(v, 38, lang)
+        if js != py: bad.append((lang, i, fld, js, py))
+    pg.evaluate("window.LAKITV.setLang('fi')"); pg.wait_for_timeout(150)
+    check(f"wrap() == tt_wrap() rivi riviltä ({len(texts)} tekstiä, tavutus suomeksi)", not bad, bad[:2])
+    lines = L.tt_wrap("Lohjan kaupunki oli hankkinut maankäytön tietojärjestelmän kilpailuttamatta Tiera Oy:ltä, jonka satoja osakkeenomistajia ovat muun muassa kunnat ja hyvinvointialueet.", 38, "fi")
+    check("tavutus: rivin loppuun jäävä sana katkaistaan tavurajalta viivalla", lines[0].endswith("maankäy-") and lines[1].startswith("tön ") and all(len(l) <= 38 for l in lines), lines)
+    check("tavutus: ei yksinäistä kirjainta, ei numeroita sisältäviä sanoja, ei ruotsiksi/englanniksi",
+          L.syl_points("koe") == [] and L.syl_points("asia") == [] and L.hyph_split("KKO:2026:76", 38) is None and L.hyph_split("talo2026", 38) is None
+          and not any(l.endswith("-") for l in L.tt_wrap("Lohjan kaupunki oli hankkinut maankäytön tietojärjestelmän kilpailuttamatta Tiera", 38, "sv")),
+          (L.syl_points("koe"), L.syl_points("asia")))
+    check("tavutus: valmis yhdysmerkki on katkaisukohta ilman lisäviivaa", L.hyph_split("EU-tuomioistuin", 4) == ["EU-", "tuomioistuin"] and L.hyph_split("EU-tuomioistuin", 8) == ["EU-tuo-", "mioistuin"], (L.hyph_split("EU-tuomioistuin", 4), L.hyph_split("EU-tuomioistuin", 8)))
 
     # 2. 201: tiivistelmäsivu ilman lisätietoja, alarivillä NÄYTÄ LÄHDETIEDOT; lähdetiedoissa asiasanat, aiheet, seuranta, lähde, palaute
     kko = D["kanavat"]["kko"][0]

@@ -186,11 +186,22 @@ with sync_playwright() as p:
     mp.tap("#kList"); mp.wait_for_timeout(300)
     box = mp.evaluate("(() => { const r = document.getElementById('panel').getBoundingClientRect(); return [r.left, r.width, r.bottom, innerHeight]; })()")
     check("mobiili: paneeli alareunan arkkina", abs(box[0]) < 1 and abs(box[2] - box[3]) < 2, box)
-    # Mobiili: ruudun napautus avaa sivunumeron syötön eikä seuraa linkkiä; kolme numeroa siirtää sivulle
+    # Mobiili: sivulinkin napautus siirtyy sivulle; muun tekstin napautus avaa sivunumeron syötön; kolme numeroa siirtää sivulle
     mp.evaluate("document.getElementById('panel').close(); window.LAKITV.setKbd(false, false); window.LAKITV.show(100, 0)"); mp.wait_for_timeout(400)
-    mp.tap("#rows a[data-p]:visible"); mp.wait_for_timeout(300)
-    check("mobiili: linkin napautus ei siirry", cur(mp) == 100, cur(mp))
-    check("mobiili: napautus avaa numerosyötön", not mp.evaluate("document.getElementById('numpad').hidden") and mp.evaluate("document.activeElement.id") == "npIn")
+    tgt = mp.evaluate("+document.querySelector('#rows a[data-p]').dataset.p")
+    mp.tap("#rows a[data-p]:visible"); mp.wait_for_timeout(400)
+    check("mobiili: sivulinkin napautus siirtyy sivulle", cur(mp) == tgt and mp.evaluate("document.getElementById('numpad').hidden"), (cur(mp), tgt))
+    mp.evaluate("window.LAKITV.show(100, 0)"); mp.wait_for_timeout(300)
+    mp.tap("#rows .row:nth-child(3)", position={"x": 60, "y": 8}); mp.wait_for_timeout(300)
+    check("mobiili: tekstin napautus avaa numerosyötön", not mp.evaluate("document.getElementById('numpad').hidden") and mp.evaluate("document.activeElement.id") == "npIn")
+    # asettelu: ruutu ilman kehystä koko leveydelle, kokonaisuus keskellä, napit ◀ Edellinen · Etusivu · Seuraava ▶ ja hiljainen rivi
+    lay = mp.evaluate("""() => { const r = s => document.querySelector(s).getBoundingClientRect(); const tv = r('#tv'), ctrl = r('#ctrl');
+      return {top: tv.top, bottom: innerHeight - ctrl.bottom, w: tv.width, vw: innerWidth, sh: document.documentElement.scrollHeight, ih: innerHeight,
+        nav: [...document.querySelectorAll('.nav2 .k')].map(b => b.id), bar: [...document.querySelectorAll('.bar .k, .bar .pgbox')].filter(b => b.offsetParent).map(b => b.id || b.className),
+        bg: getComputedStyle(document.body).backgroundColor, shadow: getComputedStyle(document.getElementById('tv')).boxShadow}; }""")
+    check("mobiili: ruutu koko leveydelle ilman kehystä mustalla taustalla", lay["w"] >= lay["vw"] - 12 and lay["shadow"] == "none" and lay["bg"] == "rgb(0, 0, 0)", lay)
+    check("mobiili: näkymä keskellä (ylä- ja alatila yhtä suuret), ei vieritystä", abs(lay["top"] - lay["bottom"]) <= 6 and lay["top"] >= 8 and lay["sh"] <= lay["ih"], lay)
+    check("mobiili: napit ◀ Edellinen · Etusivu · Seuraava ▶ ja rivi Kanavat · Haku · kieli", lay["nav"] == ["bPrev", "bHome", "bNext"] and lay["bar"] == ["bList", "bSearch", "bFi", "bSv", "bEn"], lay)
     mp.keyboard.type("199"); mp.wait_for_timeout(400)
     check("mobiili: 199 numerosyötöstä", cur(mp) == 199 and mp.evaluate("document.getElementById('numpad').hidden"), cur(mp))
     mp.tap("#screen", position={"x": 300, "y": 150}); mp.wait_for_timeout(200)

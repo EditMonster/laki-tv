@@ -668,17 +668,68 @@ function linkRow(row, p) { for (const c of row.c) c.p = p; return row; }
 function hrefRow(row, h) { if (SAFE_URL(h)) for (const c of row.c) if (!c.p) c.h = h; return row; }
 function dh(row) { row.dh = true; return [row, {skip:true}]; }
 function trunc(s, n) { const a = chars(s); return a.length <= n ? a.join("") : a.slice(0, n - 1).join("") + "…"; }
-function wrap(text, width) {
+/* Suomen tavutus (Kielitoimiston ohjeet): tavuraja on yhden konsonantin edellä (ta-lo), konsonantti-
+   jonossa viimeisen konsonantin edellä (kis-sa, myrs-ky) ja kahden vokaalin välissä, jos ne eivät ole
+   diftongi tai pitkä vokaali (ko-e, kau-an). Yhtä kirjainta ei jätetä yksin kummallekaan riville. */
+const HYPH_VOW = "aeiouyäöå";
+const HYPH_DIPH = new Set("ai ei oi ui yi äi öi au eu iu ou äy öy ey iy ie uo yö aa ee ii oo uu yy ää öö".split(" "));
+const HYPH_WORD = /^([^\p{L}\p{N}_]*)([\p{L}]+(?:-[\p{L}]+)*)([^\p{L}\p{N}_]*)$/u;
+function sylPoints(word) {   // kohdat k (katkaisu ennen merkkiä k), joissa tavuraja on; vain kirjaimia sisältävälle sanalle
+  const lw = chars(word.toLowerCase()), n = lw.length, pts = [];
+  const isV = c => HYPH_VOW.includes(c);
+  let k = 1, paired = false;
+  while (k < n) {
+    const p = lw[k - 1], c = lw[k];
+    if (isV(p) && isV(c)) {
+      if (HYPH_DIPH.has(p + c) && !paired) paired = true;
+      else { pts.push(k); paired = false; }
+      k++;
+    } else if (isV(p)) {
+      let j = k;
+      while (j < n && !isV(lw[j])) j++;
+      if (j < n) pts.push(j - 1);   // konsonanttijono: raja viimeisen konsonantin edellä
+      paired = false; k = j + 1;
+    } else { paired = false; k++; }
+  }
+  return pts.filter(x => x >= 2 && n - x >= 2);
+}
+/* Palauttaa [alkuosa, loppuosa] niin, että alkuosa (tavuviivoineen) mahtuu avail-merkkiin, tai null. Valmis yhdysmerkki
+   (EU-tuomioistuin) on myös katkaisukohta ilman lisäviivaa. Numeroita tai muita merkkejä sisältäviä sanoja ei tavuteta. */
+function hyphSplit(word, avail) {
+  const m = HYPH_WORD.exec(word);
+  if (!m || avail < 3) return null;
+  const pre = m[1], core = m[2], suf = m[3], parts = core.split("-");
+  const cand = [];   // [kohta ytimessä, lisätäänkö viiva]
+  let off = 0;
+  for (const part of parts) {
+    for (const k of sylPoints(part)) cand.push([off + k, true]);
+    off += chars(part).length;
+    if (off < chars(core).length) { cand.push([off + 1, false]); off += 1; }   // valmis yhdysmerkki mukaan alkuosaan
+  }
+  let best = null;
+  for (const [k, dash] of cand) {
+    const head = pre + chars(core).slice(0, k).join("") + (dash ? "-" : "");
+    if (chars(head).length <= avail && (!best || k > best[0])) best = [k, head, chars(core).slice(k).join("") + suf];
+  }
+  return best ? [best[1], best[2]] : null;
+}
+function wrap(text, width, hyph = LANG === "fi") {
   const words = String(text ?? "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
   const lines = []; let cur = "";
   for (let w of words) {
-    while (chars(w).length > width) {
+    while (chars(w).length > width) {   // sivua leveämpi sana: tavuraja tai viimeisenä keinona katkaisu
       if (cur) { lines.push(cur); cur = ""; }
-      lines.push(chars(w).slice(0, width).join("")); w = chars(w).slice(width).join("");
+      const h = hyph ? hyphSplit(w, width) : null;
+      if (h) { lines.push(h[0]); w = h[1]; }
+      else { lines.push(chars(w).slice(0, width).join("")); w = chars(w).slice(width).join(""); }
     }
     if (!cur) cur = w;
     else if (chars(cur).length + 1 + chars(w).length <= width) cur += " " + w;
-    else { lines.push(cur); cur = w; }
+    else {
+      const h = hyph ? hyphSplit(w, width - chars(cur).length - 1) : null;
+      if (h) { lines.push(cur + " " + h[0]); cur = h[1]; }
+      else { lines.push(cur); cur = w; }
+    }
   }
   if (cur) lines.push(cur);
   return lines;
@@ -1437,7 +1488,7 @@ function buildItem(ch, it, idx, count, opts = {}) {
   const bot2 = blank();
   const fb = SAFE_URL(FEEDBACK_URL) ? S("PALAUTE ▶", "RESPONS ▶", "FEEDBACK ▶") : "";
   const pre2 = S("LÄHDE ▶ ", "KÄLLA ▶ ", "SOURCE ▶ ");
-  if (it.lahde) put(bot2, 1, pre2 + trunc(domainOf(it.lahde), 38 - chars(pre2).length - chars(fb).length - (fb ? 1 : 0)), "c", null, {h:it.lahde});
+  if (it.lahde) put(bot2, 1, pre2 + trunc(domainOf(it.lahde), 38 - chars(pre2).length - chars(fb).length - (fb ? 1 : 0)), "y", null, {h:it.lahde});   // keltainen: linkki (LOPPUTULOS on syaani)
   if (fb) putR(bot2, 38, fb, "g", null, {h:FEEDBACK_URL});
   const pre2rows = pre.slice(0, (it.maaraaika ? 1 : 0) + (it.vaihe ? 1 : 0));   // määräaika- ja vaiherivi näkyvät myös lähdetiedoissa
   const drows = [...top(true), ...pre2rows, ...info.slice(0, 23 - topLen - 2 - pre2rows.length)];
@@ -1708,9 +1759,9 @@ function buildHelp() {
     K("C", S("isot kirjaimet päälle / pois", "versaler av / på")),
     K("I / O", S("etusivu 100 / ohje 199", "start 100 / hjälp 199")),
     K("K", S("näppäimistö auki / kiinni", "tangentbord på / av", "keypad on / off")),
-    ...textRows(S("Puhelimessa ruudun napautus avaa sivunumeron syötön; linkit eivät siirry napauttamalla.",
-      "I telefonen öppnar ett tryck på rutan sidnummerfältet; länkar följs inte med tryck.",
-      "On a phone, tapping the screen opens the page-number entry; links are not followed by tapping."), "w"),
+    ...textRows(S("Puhelimessa sivunumeron (esim. 302) napautus siirtyy sivulle ja muun tekstin napautus avaa sivunumeron syötön; pyyhkäisy vaihtaa sivua.",
+      "I telefonen går ett tryck på ett sidnummer (t.ex. 302) till sidan, ett tryck på annan text öppnar sidnummerfältet; svep byter sida.",
+      "On a phone, tapping a page number (e.g. 302) goes to that page, tapping other text opens the page-number entry; swipe changes the page."), "w"),
     {pageBreak:true},
     head(S("UUTTA", "NYTT"), "y"),
     ...P("Sivu 102 kokoaa viikon (ma–su) tärkeimmät jutut. Lista muuttuu vain, kun viikolle tulee tärkeämpi juttu.",
@@ -2911,8 +2962,8 @@ function setLang(l) {
 }
 
 /* ---------------- Tapahtumat ---------------- */
-/* Mobiili (alle 600 px): ruudun napautus avaa sivunumeron syötön eikä seuraa sivulinkkejä; toimintorivit (seuraa, kalenteri,
-   vastaukset) ja lähdelinkit toimivat. Tietokoneella ruudun linkit toimivat suoraan. */
+/* Mobiili (alle 600 px): ruudun napautus avaa sivunumeron syötön; sivulinkit (numerot), toimintorivit (seuraa, kalenteri,
+   vastaukset) ja lähdelinkit toimivat napauttamalla. Tietokoneella ruudun linkit toimivat suoraan. */
 const numpad = document.getElementById("numpad"), npIn = document.getElementById("npIn");
 const isNarrow = () => document.documentElement.clientWidth < 600;
 function openNumpad() { numpad.hidden = false; npIn.value = ""; npIn.placeholder = String(state.current); npIn.focus({preventScroll:true}); }
@@ -2920,7 +2971,7 @@ function closeNumpad() { if (numpad.hidden) return; numpad.hidden = true; if (do
 screenEl.addEventListener("click", e => {
   if (!isNarrow()) return;
   const a = e.target.closest("a");
-  if (a && (a.dataset.act || (!a.dataset.p && a.getAttribute("href")))) return;
+  if (a && (a.dataset.act || a.dataset.p || a.getAttribute("href"))) return;
   e.preventDefault(); e.stopPropagation(); openNumpad();
 }, true);
 npIn.addEventListener("input", () => {
@@ -3071,23 +3122,24 @@ const tv = document.getElementById("tv");
 function fit() {
   const vw = document.documentElement.clientWidth, vh = window.innerHeight;
   const narrow = vw < 600, low = vh < 520 && !narrow;   /* narrow: puhelin pystyssä; low: puhelin vaakaan */
-  /* Mobiilissa merkit ovat 16 % kapeampia (sx .84), jotta 40 merkin rivi mahtuu isommalla kirjasimella */
-  const sx = narrow ? .84 : 1.2;
   const padX = narrow ? .15 : 1.1, padY = narrow ? .3 : .9;
-  document.documentElement.style.setProperty("--sx", sx);
-  tv.style.padding = `${padY}em ${padX}em`;
   const side = document.body.classList.contains("kbd-open") && vw >= 960 ? 306 : 0;
-  /* Mobiilissa sivunumerokenttä siirtyy selausnappien väliin, muuten valikkopalkkiin */
-  const pgbox = document.querySelector(".pgbox"), nav2 = document.querySelector(".nav2"), bar = document.querySelector(".bar");
-  if (pgbox && nav2 && bar) {
-    if (narrow && pgbox.parentNode !== nav2) nav2.insertBefore(pgbox, document.getElementById("bNext"));
-    else if (!narrow && pgbox.parentNode !== bar) bar.insertBefore(pgbox, bar.querySelector(".sp"));
+  /* Mobiilissa Etusivu-nappi siirtyy selausnappien väliin (◀ Edellinen · Etusivu · Seuraava ▶), muuten valikkopalkin alkuun */
+  const home = document.getElementById("bHome"), nav2 = document.querySelector(".nav2"), bar = document.querySelector(".bar");
+  if (home && nav2 && bar) {
+    if (narrow && home.parentNode !== nav2) nav2.insertBefore(home, document.getElementById("bNext"));
+    else if (!narrow && home.parentNode !== bar) bar.insertBefore(home, bar.firstElementChild);
   }
   const ctrl = document.getElementById("ctrl"), ch = ctrl ? ctrl.offsetHeight : 120;
-  /* Mobiilissa ruutu täyttää leveyden (reunus 4 px + sivun reunat 4 px); korkeus ei rajoita, sivua vieritetään tarvittaessa */
-  const availW = narrow ? vw - 8 - 8 - 2 : vw - 32 - 22 - side;
-  const availH = narrow || low ? Infinity : Math.max(vh - 36 - 14 - 22 - ch, 260);
-  const raw = Math.max(8, Math.min(availW / (24 * sx + 2 * padX), availH / (25 + 2 * padY), 44));
+  /* Mobiilissa ruutu täyttää leveyden ja merkit ovat kapeampia (sx .70–.84): mitä enemmän korkeutta, sitä korkeammat rivit,
+     kunhan ruutu ja napit mahtuvat näytölle keskitettyinä. Muuten merkit ovat 20 % leveämpiä kuin kirjasimen omat. */
+  const availW = narrow ? vw - 2 : vw - 32 - 22 - side;
+  const availH = low ? Infinity : narrow ? Math.max(vh - 22 - 12 - ch, 200) : Math.max(vh - 36 - 14 - 22 - ch, 260);
+  let sx = narrow ? Math.min(.84, Math.max(.70, availW / (24 * (availH / (25 + 2 * padY))))) : 1.2;
+  if (narrow) sx = Math.round(sx * 100) / 100;
+  document.documentElement.style.setProperty("--sx", sx);
+  tv.style.padding = `${padY}em ${padX}em`;
+  const raw = Math.max(8, Math.min(availW / (24 * sx + 2 * padX), narrow ? Infinity : availH / (25 + 2 * padY), 44));
   const fs = narrow ? Math.floor(raw * 2) / 2 : Math.floor(raw);
   tv.style.fontSize = fs + "px";
   /* Mitataan todellinen rivinleveys, jotta 40 merkkiä täyttää ruudun tarkasti */
@@ -3138,7 +3190,7 @@ function liveRefresh() {
     .catch(() => {});
 }
 liveRefresh();
-window.LAKITV = {state, getPage, go, show, buildAll, setKbd, NUMS:() => NUMS, TOPICS, CHANNELS, fillerPage, setLang, weekTop, allKnown, followList, toggleFollow, icsText, kalEventsUpcoming, KAL, fileUrl, itemIndexGet:n => itemIndex.get(n), cleanFollows, copyText, dataStamp:() => DATA.paivitetty, dataLive:() => DATA_LIVE, liveSrc:() => LIVE_SRC, dataOk, toggleDetail};
+window.LAKITV = {state, getPage, go, show, buildAll, setKbd, NUMS:() => NUMS, TOPICS, CHANNELS, fillerPage, setLang, weekTop, allKnown, followList, toggleFollow, icsText, kalEventsUpcoming, KAL, fileUrl, itemIndexGet:n => itemIndex.get(n), cleanFollows, copyText, dataStamp:() => DATA.paivitetty, dataLive:() => DATA_LIVE, liveSrc:() => LIVE_SRC, dataOk, toggleDetail, wrap};
 })();
 </script>
 

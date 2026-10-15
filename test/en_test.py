@@ -91,7 +91,7 @@ with sync_playwright() as p:
     msgs = json.load(open("/tmp/t_msgs.json"))
     check("digest: englanninkielinen viesti tilaajalle", msgs and msgs[0]["kieli"] == "en" and msgs[0]["subject"].startswith("LAKI-TV morning digest") and "LEGAL TELETEXT" in msgs[0]["html"], (r.stdout, msgs[0]["subject"] if msgs else None))
     r = subprocess.run(["python3", BASE + "tools/lakitv.py", "validate", BASE + "test/fixture_data.json"], capture_output=True, text=True,
-                       env={**_os.environ, "LAKITV_NOW": _FIXED.isoformat()})   # testidata on siirretty tähän päivään: kello illalla, ettei julkaisu ole "tulevaisuudessa"
+                       env={**_os.environ, "LAKITV_NOW": _FIXED.isoformat(), "LAKITV_ONE_PAGE_SINCE": "2099-01-01"})   # testidata on siirretty tähän päivään: kello illalla, ettei julkaisu ole "tulevaisuudessa"; jutut ovat yhden sivun mallia vanhempia
     check("validate: ei ENGLANTI PUUTTUU -rivejä", "ENGLANTI PUUTTUU" not in r.stdout and "0 virhettä" in r.stdout, r.stdout[-300:])
     check("ei JS-virheitä", not errs and not e2, errs + e2)
     b.close()

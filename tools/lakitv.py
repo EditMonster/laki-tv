@@ -448,7 +448,7 @@ def sane_date(v):
 # kaista, otsikko (2 riviä/rivi), tunnusrivi(t), määräaika- tai vaiherivi, tyhjä, teksti, lopputulos, huom, lainvoimahuomautus,
 # alarivi (NÄYTÄ LÄHDETIEDOT). Jos rivejä tulee enemmän, sivu näyttää vain sivulle mahtuvat kokonaiset virkkeet ja lähdetiedoissa
 # lukee "Lyhennetty": validate pyytää lyhentämään (uusille jutuille virhe YLI SIVUN, vanhoille huomautus LYHENNÄ).
-ONE_PAGE_SINCE = "2026-10-15"          # tästä päivästä lisätyille jutuille myös sanarajat ovat virheitä; rivibudjetti koskee kaikkia
+ONE_PAGE_SINCE = os.environ.get("LAKITV_ONE_PAGE_SINCE") or "2026-10-15"   # tästä päivästä lisätyille jutuille sanarajat ja YLI SIVUN ovat virheitä (testit siirtävät rajaa)
 TEKSTI_MAX = {"fi": 50, "sv": 55, "en": 65}   # ohjeellinen sanaraja; ratkaiseva on tiivistelmäsivun rivibudjetti
 LOPPUTULOS_MAX = 15
 SELKO_MAX = {"fi": 60, "sv": 70, "en": 80}
@@ -460,8 +460,62 @@ SELITE_EN = {"annettu": "issued", "tiedote": "release", "päätös": "decision",
              "lausunto": "opinion"}
 
 
-def tt_wrap(text, width=38):
-    """Sivun wrap(): sanat riveille, ylipitkät sanat katkaistaan."""
+# Suomen tavutus (Kielitoimiston ohjeet): tavuraja yhden konsonantin edellä (ta-lo), konsonanttijonossa viimeisen konsonantin
+# edellä (kis-sa, myrs-ky) ja kahden vokaalin välissä, jos ne eivät ole diftongi tai pitkä vokaali (ko-e, kau-an). Yhtä kirjainta
+# ei jätetä yksin kummallekaan riville. Sama algoritmi kuin sivun sylPoints/hyphSplit/wrap: rivimäärien on täsmättävä.
+HYPH_VOW = "aeiouyäöå"
+HYPH_DIPH = set("ai ei oi ui yi äi öi au eu iu ou äy öy ey iy ie uo yö aa ee ii oo uu yy ää öö".split())
+HYPH_WORD = re.compile(r"^([^\w]*)([^\W\d_]+(?:-[^\W\d_]+)*)([^\w]*)$")   # etuliite, kirjainydin (yhdysmerkit sallittu), jälkiliite
+
+
+def syl_points(word):
+    """Kohdat k (katkaisu ennen merkkiä k), joissa tavuraja on; sana sisältää vain kirjaimia."""
+    lw = word.lower(); n = len(lw); pts = []
+    k, paired = 1, False
+    while k < n:
+        p, c = lw[k - 1], lw[k]
+        if p in HYPH_VOW and c in HYPH_VOW:
+            if (p + c) in HYPH_DIPH and not paired:
+                paired = True
+            else:
+                pts.append(k); paired = False
+            k += 1
+        elif p in HYPH_VOW:
+            j = k
+            while j < n and lw[j] not in HYPH_VOW:
+                j += 1
+            if j < n:
+                pts.append(j - 1)   # konsonanttijono: raja viimeisen konsonantin edellä
+            paired = False; k = j + 1
+        else:
+            paired = False; k += 1
+    return [x for x in pts if x >= 2 and n - x >= 2]
+
+
+def hyph_split(word, avail):
+    """[alkuosa, loppuosa] niin, että alkuosa tavuviivoineen mahtuu avail-merkkiin, tai None. Valmis yhdysmerkki on myös
+    katkaisukohta ilman lisäviivaa. Numeroita tai muita merkkejä sisältäviä sanoja ei tavuteta."""
+    m = HYPH_WORD.match(word)
+    if not m or avail < 3:
+        return None
+    pre, core, suf = m.group(1), m.group(2), m.group(3)
+    cand, off = [], 0
+    for part in core.split("-"):
+        cand += [(off + k, True) for k in syl_points(part)]
+        off += len(part)
+        if off < len(core):
+            cand.append((off + 1, False)); off += 1
+    best = None
+    for k, dash in cand:
+        head = pre + core[:k] + ("-" if dash else "")
+        if len(head) <= avail and (best is None or k > best[0]):
+            best = (k, head, core[k:] + suf)
+    return [best[1], best[2]] if best else None
+
+
+def tt_wrap(text, width=38, lang="fi"):
+    """Sivun wrap(): sanat riveille; suomeksi rivin loppuun jäävä sana tavutetaan, ylipitkät sanat katkaistaan."""
+    hyph = lang == "fi"
     out, cur = [], ""
     for w in re.sub(r"\s+", " ", str(text or "")).strip().split(" "):
         if not w:
@@ -469,13 +523,21 @@ def tt_wrap(text, width=38):
         while len(w) > width:
             if cur:
                 out.append(cur); cur = ""
-            out.append(w[:width]); w = w[width:]
+            h = hyph_split(w, width) if hyph else None
+            if h:
+                out.append(h[0]); w = h[1]
+            else:
+                out.append(w[:width]); w = w[width:]
         if not cur:
             cur = w
         elif len(cur) + 1 + len(w) <= width:
             cur += " " + w
         else:
-            out.append(cur); cur = w
+            h = hyph_split(w, width - len(cur) - 1) if hyph else None
+            if h:
+                out.append(cur + " " + h[0]); cur = h[1]
+            else:
+                out.append(cur); cur = w
     if cur:
         out.append(cur)
     return out
@@ -498,7 +560,7 @@ def item_rows(it, kanava, d, lang="fi"):
     when = f"{selite} {fdate(it.get('pvm'))}" if it.get("pvm") else ""
     if when and norm(when) in norm(tun):
         when = ""
-    rows = 1 + 2 * min(2, len(tt_wrap(_tx(it, "otsikko", lang))))          # kaista + otsikko
+    rows = 1 + 2 * min(2, len(tt_wrap(_tx(it, "otsikko", lang), 38, lang)))          # kaista + otsikko
     rows += 1 if (not when or len(tun) + 2 + len(when) <= 38) else 2         # tunnusrivi(t)
     if it.get("maaraaika"):
         rows += 1
@@ -507,11 +569,11 @@ def item_rows(it, kanava, d, lang="fi"):
     rows += 1                                                                 # tyhjä
     if lang != "fi" and it.get("teksti") and not it.get("teksti" + sfx):
         rows += 1                                                             # "Texten finns endast på finska"
-    rows += len(tt_wrap(_tx(it, "teksti", lang)))
+    rows += len(tt_wrap(_tx(it, "teksti", lang), 38, lang))
     if it.get("lopputulos"):
-        rows += len(tt_wrap(("LOPPUTULOS: " if lang == "fi" else "UTGÅNG: " if lang == "sv" else "OUTCOME: ") + _tx(it, "lopputulos", lang)))
+        rows += len(tt_wrap(("LOPPUTULOS: " if lang == "fi" else "UTGÅNG: " if lang == "sv" else "OUTCOME: ") + _tx(it, "lopputulos", lang), 38, lang))
     if it.get("huom"):
-        rows += len(tt_wrap(_tx(it, "huom", lang)))
+        rows += len(tt_wrap(_tx(it, "huom", lang), 38, lang))
     if it.get("lainvoimainen") is False:
         rows += 1
     return rows + 1                                                           # vihjerivi (lisätiedot, lähde ja seuranta)

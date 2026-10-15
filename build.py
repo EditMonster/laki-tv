@@ -5,9 +5,10 @@ import os
 FONTS = 'fonts' if os.path.isdir('fonts') else '../fonts'   # varastossa fonts/, työkopiossa ../fonts/
 f1 = base64.b64encode(open(f'{FONTS}/bedstead-sub.woff2', 'rb').read()).decode()
 f2 = base64.b64encode(open(f'{FONTS}/lakicaps-sub.woff2', 'rb').read()).decode()
+f3 = base64.b64encode(open(f'{FONTS}/bedstead-ao.woff2', 'rb').read()).decode()   # Ä Ö Å täyskorkeina pien- ja suuraakkostilaan
 data = json.load(open('data.json'))
 js = json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/').replace('<!--', '<\\u0021--')
-out = tpl.replace('__FONT_B64__', f1).replace('__FONT2_B64__', f2).replace('__DATA__', js)
+out = tpl.replace('__FONT_B64__', f1).replace('__FONT2_B64__', f2).replace('__FONT3_B64__', f3).replace('__DATA__', js)
 open('laki-tv.html', 'w').write(out)
 scripts = re.findall(r'<script>(.*?)</script>', out, flags=re.S)
 open('/tmp/lakitv_check.js', 'w').write(scripts[-1])

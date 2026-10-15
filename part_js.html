@@ -3124,12 +3124,6 @@ function fit() {
   const narrow = vw < 600, low = vh < 520 && !narrow;   /* narrow: puhelin pystyssä; low: puhelin vaakaan */
   const padX = narrow ? .15 : 1.1, padY = narrow ? .3 : .9;
   const side = document.body.classList.contains("kbd-open") && vw >= 960 ? 306 : 0;
-  /* Mobiilissa Etusivu-nappi siirtyy selausnappien väliin (◀ Edellinen · Etusivu · Seuraava ▶), muuten valikkopalkin alkuun */
-  const home = document.getElementById("bHome"), nav2 = document.querySelector(".nav2"), bar = document.querySelector(".bar");
-  if (home && nav2 && bar) {
-    if (narrow && home.parentNode !== nav2) nav2.insertBefore(home, document.getElementById("bNext"));
-    else if (!narrow && home.parentNode !== bar) bar.insertBefore(home, bar.firstElementChild);
-  }
   const ctrl = document.getElementById("ctrl"), ch = ctrl ? ctrl.offsetHeight : 120;
   /* Mobiilissa ruutu täyttää leveyden ja merkit ovat kapeampia (sx .70–.84): mitä enemmän korkeutta, sitä korkeammat rivit,
      kunhan ruutu ja napit mahtuvat näytölle keskitettyinä. Muuten merkit ovat 20 % leveämpiä kuin kirjasimen omat. */

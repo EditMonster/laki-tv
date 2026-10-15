@@ -34,8 +34,7 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.goto(URL); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     check("aloitus etusivulla", cur(pg) == 100)
-    check("pien- ja suuraakkoset oletuksena (leipäteksti luettavampi; kaista ja otsikot ovat versaalia datassa)", not pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
-    check("Bedstead käytössä oletuksena", "Bedstead" in pg.evaluate("getComputedStyle(document.getElementById('rows')).fontFamily"))
+    check("tietokoneella isot kirjaimet oletuksena (LakiCaps)", pg.evaluate("document.getElementById('rows').classList.contains('caps')") and "LakiCaps" in pg.evaluate("getComputedStyle(document.getElementById('rows')).fontFamily"))
     # näppäimistö: sivunumero
     pg.keyboard.type("201"); pg.wait_for_timeout(400)
     check("näppäily 201", cur(pg) == 201, cur(pg))
@@ -121,12 +120,12 @@ with sync_playwright() as p:
     check("vapaa paikka 233: kuva + päivän termi", "PÄIVÄN TERMI" in t.upper() and "SIVU 233" in t.upper(), t[:200])
     # Kirjainkoko
     pg.keyboard.press("c")
-    check("C vaihtaa isot kirjaimet (LakiCaps)", pg.evaluate("document.getElementById('rows').classList.contains('caps')") and "LakiCaps" in pg.evaluate("getComputedStyle(document.getElementById('rows')).fontFamily"))
+    check("C vaihtaa pienet kirjaimet (Bedstead)", not pg.evaluate("document.getElementById('rows').classList.contains('caps')") and "Bedstead" in pg.evaluate("getComputedStyle(document.getElementById('rows')).fontFamily"))
     pg.reload(); pg.wait_for_timeout(400)
-    check("kirjainkoko muistetaan", pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
+    check("kirjainkoko muistetaan", not pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
     check("hash-linkki säilyy reloadissa", cur(pg) == 233, cur(pg))
     pg.click("#kCase")
-    check("ABC-näppäin palauttaa pienet", not pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
+    check("ABC-näppäin palauttaa isot", pg.evaluate("document.getElementById('rows').classList.contains('caps')"))
     # Aihesuodatin
     pg.click("#kTopics"); pg.wait_for_timeout(200)
     check("AIHEET avaa paneelin", pg.evaluate("document.getElementById('panel').open"))
@@ -188,12 +187,12 @@ with sync_playwright() as p:
     check("mobiili: paneeli alareunan arkkina", abs(box[0]) < 1 and abs(box[2] - box[3]) < 2, box)
     # Mobiili: sivulinkin napautus siirtyy sivulle; muun tekstin napautus avaa sivunumeron syötön; kolme numeroa siirtää sivulle
     mp.evaluate("document.getElementById('panel').close(); window.LAKITV.setKbd(false, false); window.LAKITV.show(100, 0)"); mp.wait_for_timeout(400)
-    tgt = mp.evaluate("+document.querySelector('#rows a[data-p]').dataset.p")
     mp.tap("#rows a[data-p]:visible"); mp.wait_for_timeout(400)
-    check("mobiili: sivulinkin napautus siirtyy sivulle", cur(mp) == tgt and mp.evaluate("document.getElementById('numpad').hidden"), (cur(mp), tgt))
-    mp.evaluate("window.LAKITV.show(100, 0)"); mp.wait_for_timeout(300)
+    check("mobiili: sivulinkin napautus ei siirry, vaan avaa numerosyötön", cur(mp) == 100 and not mp.evaluate("document.getElementById('numpad').hidden") and mp.evaluate("document.activeElement.id") == "npIn", cur(mp))
+    mp.keyboard.press("Escape"); mp.wait_for_timeout(200)
     mp.tap("#rows .row:nth-child(3)", position={"x": 60, "y": 8}); mp.wait_for_timeout(300)
     check("mobiili: tekstin napautus avaa numerosyötön", not mp.evaluate("document.getElementById('numpad').hidden") and mp.evaluate("document.activeElement.id") == "npIn")
+    check("mobiili: kirjainkoon oletus pienet (tietokoneella isot)", not mp.evaluate("document.getElementById('rows').classList.contains('caps')"))
     # asettelu: ruutu ilman kehystä koko leveydelle, kokonaisuus keskellä, napit ◀ Edellinen · Etusivu · Seuraava ▶ ja hiljainen rivi
     lay = mp.evaluate("""() => { const r = s => document.querySelector(s).getBoundingClientRect(); const tv = r('#tv'), ctrl = r('#ctrl');
       return {top: tv.top, bottom: innerHeight - ctrl.bottom, w: tv.width, vw: innerWidth, sh: document.documentElement.scrollHeight, ih: innerHeight,

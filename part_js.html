@@ -801,7 +801,7 @@ const isFresh = it => ageHours(it) <= 24;
 /* ---------------- Aihesuodatin ---------------- */
 const state = {current:100, sub:0, detail:false, typed:"", hold:false, size:0, reveal:false, rolling:null, target:null,
   lastSub:Date.now(), lastItem:null, hist:[], hover:false, pauseUntil:0, day:null, arch:null,
-  filter:new Set(store.arr("filter").filter(k => typeof k === "string" && Object.hasOwn(TOPIC, k))), caps:store.get("caps", false) === true};
+  filter:new Set(store.arr("filter").filter(k => typeof k === "string" && Object.hasOwn(TOPIC, k))), caps:(v => v === null ? document.documentElement.clientWidth >= 600 : v === true)(store.get("caps", null))};   // oletus: tietokoneella ISOT, puhelimessa pienet; oma valinta säilyy
 const filterOn = () => state.filter.size > 0;
 const matches = it => !filterOn() || (it.aiheet || []).some(t => state.filter.has(t));
 const filterNames = () => TOPICS.filter(t => state.filter.has(t.key)).map(t => t.short).join(", ");
@@ -1759,9 +1759,9 @@ function buildHelp() {
     K("C", S("isot kirjaimet päälle / pois", "versaler av / på")),
     K("I / O", S("etusivu 100 / ohje 199", "start 100 / hjälp 199")),
     K("K", S("näppäimistö auki / kiinni", "tangentbord på / av", "keypad on / off")),
-    ...textRows(S("Puhelimessa sivunumeron (esim. 302) napautus siirtyy sivulle ja muun tekstin napautus avaa sivunumeron syötön; pyyhkäisy vaihtaa sivua.",
-      "I telefonen går ett tryck på ett sidnummer (t.ex. 302) till sidan, ett tryck på annan text öppnar sidnummerfältet; svep byter sida.",
-      "On a phone, tapping a page number (e.g. 302) goes to that page, tapping other text opens the page-number entry; swipe changes the page."), "w"),
+    ...textRows(S("Puhelimessa ruudun napautus avaa sivunumeron syötön: sivulta toiselle siirrytään numeroilla, ei linkkejä napauttamalla; pyyhkäisy vaihtaa sivua.",
+      "I telefonen öppnar ett tryck på rutan sidnummerfältet: sidor byts med siffror, inte genom att trycka på länkar; svep byter sida.",
+      "On a phone, tapping the screen opens the page-number entry: pages are changed with digits, not by tapping links; swipe changes the page."), "w"),
     {pageBreak:true},
     head(S("UUTTA", "NYTT"), "y"),
     ...P("Sivu 102 kokoaa viikon (ma–su) tärkeimmät jutut. Lista muuttuu vain, kun viikolle tulee tärkeämpi juttu.",
@@ -2962,8 +2962,8 @@ function setLang(l) {
 }
 
 /* ---------------- Tapahtumat ---------------- */
-/* Mobiili (alle 600 px): ruudun napautus avaa sivunumeron syötön; sivulinkit (numerot), toimintorivit (seuraa, kalenteri,
-   vastaukset) ja lähdelinkit toimivat napauttamalla. Tietokoneella ruudun linkit toimivat suoraan. */
+/* Mobiili (alle 600 px): ruudun napautus avaa sivunumeron syötön eikä seuraa sivulinkkejä (sivulta toiselle siirrytään
+   aina numeroilla); toimintorivit (seuraa, kalenteri, vastaukset) ja lähdelinkit toimivat. Tietokoneella linkit toimivat suoraan. */
 const numpad = document.getElementById("numpad"), npIn = document.getElementById("npIn");
 const isNarrow = () => document.documentElement.clientWidth < 600;
 function openNumpad() { numpad.hidden = false; npIn.value = ""; npIn.placeholder = String(state.current); npIn.focus({preventScroll:true}); }
@@ -2971,7 +2971,7 @@ function closeNumpad() { if (numpad.hidden) return; numpad.hidden = true; if (do
 screenEl.addEventListener("click", e => {
   if (!isNarrow()) return;
   const a = e.target.closest("a");
-  if (a && (a.dataset.act || a.dataset.p || a.getAttribute("href"))) return;
+  if (a && (a.dataset.act || (!a.dataset.p && a.getAttribute("href")))) return;
   e.preventDefault(); e.stopPropagation(); openNumpad();
 }, true);
 npIn.addEventListener("input", () => {

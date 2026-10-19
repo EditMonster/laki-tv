@@ -43,6 +43,17 @@ pelkän peilauksen komennolla `lakitv.py peilaa`, jos artifakti on ajan tasalla 
 Huomaa, että ajastetut ajot käyttävät saman claude.ai-tilin käyttörajaa kuin vuorovaikutteiset istunnot: raskas päivätyö samalla tilillä voi
 estää ajon ("usage limit reached" ajon lokissa). Vahti hälyttää silloin sähköpostilla.
 
+## Mallivahti: Fable 5.1 -> Opus 5.5, kun käyttöraja on täynnä
+
+Pääajo (6.45 ja 14.45) käyttää mallia claude-opus-5-5, varmistusajot (8.15 ja 16.15) mallia claude-fable-5-1. Ajo, joka törmää
+käyttörajaan, kaatuu jo käynnistyessään (ajolokissa `USAGE_LIMIT_REACHED`), joten mallia ei voi vaihtaa ajon sisältä. Siksi erillinen
+ajastettu tehtävä **"LAKI-TV mallivahti"** (klo 8.35 ja 16.35, malli claude-opus-5-5; kehote `trigger_prompt_mallivahti_v1.txt`) tarkistaa
+varmistusajojen viimeisen ajon: jos Fable-ajo kaatui käyttörajaan alle 3 tuntia sitten, vahti vaihtaa tehtävän mallin Opus 5.5:een ja
+käynnistää sen heti, jolloin päivän varmistus tehdään noin 20 minuuttia myöhässä. Kun varamallilla tehty ajo on onnistunut, vahti palauttaa
+mallin Fable 5.1:een, jotta seuraava ajo yrittää taas ensisijaista mallia; jos raja on yhä täynnä, sama kierros toistuu (nopea epäonnistuminen
+ei kuluta mitään). Pääajon malliin vahti ei koske. Jos koko tilin raja on täynnä, myös Opus-ajot ja vahti itse epäonnistuvat, ja GitHubin
+`vahti.yml` hälyttää sähköpostilla.
+
 ## Käsin päivitys
 
 Jos ajo ei pääse GitHubiin, datan voi viedä käsin: `python3 tools/lakitv.py extract laki-tv.html data.json` artifaktin sivusta, ja sisältö gistiin (Edit) – tai tämän varaston `data.json`-tiedostoon, jota työnkulku käyttää varalla, jos gistiä ei saada luettua tai se on vielä tyhjä.

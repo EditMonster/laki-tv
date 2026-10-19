@@ -43,6 +43,9 @@ lähteet (KKO, KHO, Finlex, eduskunta, curia, HUDOC, …)
         └──digest --muoto slack|teams ──▶ post  (ylläpitäjän webhook)
         └──ghpush (vain data.json)──▶  gist ──Actions hakee 2×/h: validate + build + feed + website──▶  verkkosivusto (GitHub Pages)
                                                    └──────── sivu hakee uusimman data.jsonin itse ───────────▶  (ajan tasalla, vaikka Actions olisi myöhässä)
+
+   päivitysajossa: lakitv.py julkaise = validate + inject + feed (+ viikkokatsaus) + ghpush varmistuksineen, yhdellä komennolla
+   ENNEN artifaktin julkaisua – ajon katkeaminen julkaisun jälkeen ei jätä sivustoa vanhaksi
 ```
 
 * **Sivu** on yksi HTML-tiedosto ilman riippuvuuksia. Teksti-TV-moottori piirtää 40×25 merkin sivut datasta selaimessa; kaikki sivut (myös kalenteri, viikon tärkeimmät ja aiheet) lasketaan datasta ajon aikana.
@@ -67,13 +70,16 @@ python3 tools/lakitv.py validate data.json                  # kaikki tarkistukse
 python3 tools/lakitv.py inject laki-tv.html data.json uusi.html
 python3 tools/lakitv.py feed data.json --out jakelu         # RSS, JSON, Markdown, kalenteri
 python3 tools/lakitv.py viikkokatsaus data.json --out jakelu/viikkokatsaus
+python3 tools/lakitv.py julkaise laki-tv.html data.json uusi.html --out jakelu --asetukset aset/asetukset/jakelu.json
+                                                            # päivitysajo: edelliset kolme + peilaus gistiin ja työnnön varmistus yhdellä komennolla
+python3 tools/lakitv.py peilaa data.json --asetukset aset/asetukset/jakelu.json   # vain peilaus (varmistusajot)
 python3 tools/lakitv.py digest data.json --laji aamu --muoto slack --out slack.json
-python3 tools/lakitv.py post slack.json https://hooks.slack.com/…
+python3 tools/lakitv.py post slack.json --asetukset aset/asetukset/jakelu.json --kanava slack   # webhook asetustiedostosta, ei komentoriville
 
 # verkkosivusto (GitHub Pages tekee tämän itse; paikallisesti:)
 python3 tools/assets.py                                     # kuvakkeet ja jakokuva (kerran)
 python3 tools/website.py --page laki-tv.html --feeds jakelu --out site --base https://tunnus.github.io/laki-tv/
-GITHUB_TOKEN=… python3 tools/ghpush.py gist:TUNNUS data.json=data.json         # päivitysajo: vain data gistiin
+GITHUB_TOKEN=… python3 tools/ghpush.py gist:TUNNUS data.json=data.json         # käsin: vain data gistiin (julkaise/peilaa kutsuu tätä)
 
 # testit (Playwright + Chromium)
 ./test/run_all.sh

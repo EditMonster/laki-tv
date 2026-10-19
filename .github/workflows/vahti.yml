@@ -1,9 +1,12 @@
-# LAKI-TV vahti: tarkistaa joka aamu, että päivitysajo on työntänyt tuoreen sisällön datavarastoon (gist tai varasto).
-# Jos data on yli 20 tuntia vanhaa, työnkulku epäonnistuu ja GitHub lähettää siitä sähköpostin varaston omistajalle.
+# LAKI-TV vahti: tarkistaa aamulla ja illalla, että päivitysajo on työntänyt tuoreen sisällön datavarastoon (gist tai varasto).
+# Tuore = paivitetty on viimeisimmän ajastetun ajon (klo 6.45 tai 14.45 Helsingin aikaa) jälkeiseltä ajalta. Jos ei ole,
+# työnkulku epäonnistuu ja GitHub lähettää siitä sähköpostin (Actions-ilmoitukset työnkulun viimeksi muokanneelle).
+# Varmistusajot (8.15 ja 16.15) ehtivät korjata ennen vahtia; vahti huomaa, jos myös ne jäivät väliin (esim. käyttöraja).
 name: vahti
 on:
   schedule:
-    - cron: "10 7 * * *"   # 07:10 UTC = 10:10 Helsinki kesäaikaan, 09:10 talvella – riittää
+    - cron: "10 7 * * *"    # 10.10 Helsingin kesäaikaa (9.10 talvella): aamuajo + varmistusajo ovat ohi
+    - cron: "40 15 * * *"   # 18.40 kesäaikaa (17.40 talvella): iltapäiväajo + varmistusajo ovat ohi
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,15 +27,27 @@ jobs:
               *)      DATA_URL="https://raw.githubusercontent.com/$DATA_REPO/main/data.json" ;;
             esac
           fi
-          curl -fsSL --max-time 30 -H "Cache-Control: no-cache" "$DATA_URL" -o data.uusi.json \
+          curl -fsSL --max-time 30 -H "Cache-Control: no-cache" "$DATA_URL?v=$(date +%s)" -o data.uusi.json \
             && python3 -c "import json, sys; d = json.load(open('data.uusi.json', encoding='utf-8')); sys.exit(0 if d.get('paivitetty') else 1)" \
             && mv data.uusi.json data.json || echo "datavarastoa ei saatu luettua – tarkistetaan tämän varaston data.json"
           python3 - <<'PY'
           import json, datetime, sys
+          from zoneinfo import ZoneInfo
+          HKI = ZoneInfo("Europe/Helsinki")
           d = json.load(open("data.json", encoding="utf-8"))
-          t = datetime.datetime.fromisoformat(d["paivitetty"])
-          age = (datetime.datetime.now(datetime.timezone.utc) - t).total_seconds() / 3600
-          print(f"paivitetty {d['paivitetty']}, ikä {age:.1f} h")
-          if age > 20:
-              sys.exit(f"LAKI-TV: sisältö on {age:.0f} tuntia vanhaa – tarkista ajastettu päivitysajo ja GitHub-peilaus (data-varasto).")
+          t = datetime.datetime.fromisoformat(d["paivitetty"]).astimezone(HKI)
+          now = datetime.datetime.now(HKI)
+          age = (now - t).total_seconds() / 3600
+          # viimeisin ajastettu ajo, jonka pitäisi jo näkyä: 14.45 jos kello on yli 15.30, 6.45 jos yli 7.30, muuten edellisen päivän 14.45
+          today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+          if now.hour * 60 + now.minute >= 15 * 60 + 30:
+              expected = today.replace(hour=14, minute=30)
+          elif now.hour * 60 + now.minute >= 7 * 60 + 30:
+              expected = today.replace(hour=6, minute=30)
+          else:
+              expected = (today - datetime.timedelta(days=1)).replace(hour=14, minute=30)
+          print(f"paivitetty {d['paivitetty']}, ikä {age:.1f} h, odotettu vähintään {expected:%d.%m. klo %H.%M}")
+          if t < expected:
+              sys.exit(f"LAKI-TV: datavaraston sisältö on {age:.0f} tuntia vanhaa (päivitetty {t:%d.%m. klo %H.%M}); klo {expected:%H.%M} jälkeinen päivitys puuttuu. "
+                       "Tarkista ajastettu päivitysajo ja varmistusajo (claude.ai, ajastetut tehtävät): esim. käyttöraja tai GitHub-peilaus (PEILAUS-rivi raportissa).")
           PY

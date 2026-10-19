@@ -243,6 +243,44 @@ subprocess.run(["git", "symbolic-ref", "HEAD", "refs/heads/master"], cwd=td + "/
 r = sh(sys.executable, GH, "gist:0123456789abcdef0123", "--remote", td + "/remote2.git", "data.json=data.json", env={"GITHUB_TOKEN": "ghp_TESTI00000000000000000000"})
 head2 = subprocess.run(["git", "show", "master:data.json"], cwd=td + "/remote2.git", capture_output=True, text=True).stdout
 ok(r.returncode == 0 and "06:49:36" in head2, "ghpush: haara tunnistetaan automaattisesti (master)", r.stdout[-120:] + r.stderr[-200:])
+# 25. julkaise / peilaa: validate + inject + feed + peilaus datavarastoon yhdellä komennolla ENNEN artefaktin julkaisua;
+# avain luetaan asetustiedostosta eikä näy tulosteessa; peilauksen epäonnistuminen (paluukoodi 3) ei estä sivun tekemistä
+shutil.copy(GH, td + "/ghpush.py")
+LK = td + "/lakitv.py"; SIVU = B + "laki-tv.html"
+jenv = {**env, "LAKITV_PEILAUS_ODOTUS": "0"}
+dj = json.load(open(B + "data.json", encoding="utf-8")); dj["paivitetty"] = L.now().isoformat(timespec="seconds")
+json.dump(dj, open(td + "/data_j.json", "w", encoding="utf-8"), ensure_ascii=False)
+json.dump({"github_repo": "gist:0123456789abcdef0123456789abcdef", "github_token": "github_pat_SALAINEN_TESTI_000000000", "github_remote": td + "/remote.git"}, open(td + "/aset.json", "w"))
+r = subprocess.run([sys.executable, LK, "julkaise", SIVU, "data_j.json", "uusi.html", "--out", "jak", "--asetukset", "aset.json", "--viesti", "LAKI-TV testi", "--ei-viikkokatsausta"], capture_output=True, text=True, cwd=td, env=jenv)
+headj = subprocess.run(["git", "show", "main:data.json"], cwd=td + "/remote.git", capture_output=True, text=True).stdout
+ok(r.returncode == 0 and "PEILAUS OK" in r.stdout and dj["paivitetty"] in headj and os.path.exists(td + "/uusi.html") and os.path.exists(td + "/jak/feed.xml") and os.path.exists(td + "/jak/kalenteri-en.txt"),
+   "julkaise: sivu, jakelutiedostot ja peilaus yhdellä komennolla", r.stdout[-300:] + r.stderr[-300:])
+ok("SALAINEN" not in r.stdout + r.stderr, "julkaise: avain ei näy tulosteessa")
+ok("LAKI-TV testi" in subprocess.run(["git", "log", "-1", "--format=%s", "main"], cwd=td + "/remote.git", capture_output=True, text=True).stdout, "julkaise: --viesti on commitin viesti")
+ok(not os.path.exists(td + "/jak/viikkokatsaus.html"), "julkaise: --ei-viikkokatsausta ohittaa viikkokatsauksen")
+r = subprocess.run([sys.executable, LK, "peilaa", "data_j.json", "--asetukset", "aset.json"], capture_output=True, text=True, cwd=td, env=jenv)
+ok(r.returncode == 0 and "PEILAUS OK: commit ennallaan" in r.stdout, "peilaa: muuttumaton data = ennallaan, varmistus HEADista", r.stdout[-200:] + r.stderr[-200:])
+json.dump({"github_repo": "gist:0123456789abcdef0123456789abcdef", "github_token": "github_pat_SALAINEN_TESTI_000000000", "github_remote": td + "/ei-ole.git"}, open(td + "/aset_bad.json", "w"))
+r = subprocess.run([sys.executable, LK, "julkaise", SIVU, "data_j.json", "uusi2.html", "--out", "jak2", "--asetukset", "aset_bad.json", "--ei-viikkokatsausta"], capture_output=True, text=True, cwd=td, env=jenv)
+ok(r.returncode == 3 and "PEILAUS EPÄONNISTUI" in r.stdout and os.path.exists(td + "/uusi2.html") and os.path.exists(td + "/jak2/feed.json"), "julkaise: peilauksen epäonnistuminen -> paluukoodi 3, sivu ja jakelutiedostot silti valmiit", r.stdout[-300:] + r.stderr[-300:])
+ok("SALAINEN" not in r.stdout + r.stderr, "julkaise: avain ei vuoda virheilmoitukseen")
+r = subprocess.run([sys.executable, LK, "julkaise", SIVU, "data_j.json", "uusi3.html", "--out", "jak3", "--ei-viikkokatsausta"], capture_output=True, text=True, cwd=td, env=jenv)
+ok(r.returncode == 0 and "PEILAUS: asetus puuttuu" in r.stdout and os.path.exists(td + "/uusi3.html"), "julkaise: ilman asetustiedostoa peilaus ohitetaan (asetus puuttuu)", r.stdout[-200:])
+badj = copy.deepcopy(dj); badj["kanavat"]["kko"][0]["paino"] = "x"
+json.dump(badj, open(td + "/bad_j.json", "w", encoding="utf-8"), ensure_ascii=False)
+r = subprocess.run([sys.executable, LK, "julkaise", SIVU, "bad_j.json", "uusi4.html", "--out", "jak4", "--asetukset", "aset.json", "--ei-viikkokatsausta"], capture_output=True, text=True, cwd=td, env=jenv)
+ok(r.returncode == 1 and "VIRHE" in r.stdout and not os.path.exists(td + "/uusi4.html") and dj["paivitetty"] in subprocess.run(["git", "show", "main:data.json"], cwd=td + "/remote.git", capture_output=True, text=True).stdout,
+   "julkaise: validate-virhe pysäyttää ennen kirjoitusta ja peilausta", r.stdout[-200:] + r.stderr[-200:])
+old = copy.deepcopy(dj); old["paivitetty"] = (L.now() - datetime.timedelta(hours=3)).isoformat(timespec="seconds")
+json.dump(old, open(td + "/old_j.json", "w", encoding="utf-8"), ensure_ascii=False)
+r = subprocess.run([sys.executable, LK, "julkaise", SIVU, "old_j.json", "uusi5.html", "--out", "jak5", "--ei-viikkokatsausta"], capture_output=True, text=True, cwd=td, env=jenv)
+ok("ajoitko stamp" in r.stdout, "julkaise: vanha paivitetty -> HUOM stamp-komennosta")
+r = subprocess.run([sys.executable, LK, "julkaise", SIVU, "data_j.json", "uusi6.html", "--out", "jak6", "--ei-peilausta", "--viikkokatsaus"], capture_output=True, text=True, cwd=td, env=jenv)
+ok(r.returncode == 0 and "PEILAUS: ohitettu" in r.stdout and os.path.exists(td + "/jak6/viikkokatsaus.html"), "julkaise: --viikkokatsaus tekee katsauksen, --ei-peilausta ohittaa peilauksen", r.stdout[-200:] + r.stderr[-200:])
+open(td + "/kuorma.json", "w").write('{"text":"x"}')
+r = subprocess.run([sys.executable, LK, "post", "kuorma.json", "--asetukset", "aset.json", "--kanava", "slack"], capture_output=True, text=True, cwd=td, env=jenv)
+ok(r.returncode == 0 and "Ei lähetetty" in r.stdout and "slack_webhook puuttuu" in r.stdout, "post --asetukset: puuttuva webhook -> ei lähetetä", r.stdout[-200:])
+ok(L.mask("avain ghp_abcdefghijklmnopqrstuvwxyz1234 ja https://hooks.slack.com/services/T0/B0/xyz loppu", ["OMA_SALAINEN"]) == "avain [AVAIN] ja [AVAIN] loppu", "mask: avaimet ja webhookit peitetään")
 shutil.rmtree(td, ignore_errors=True)
 # Hankeikkuna: lausuntopyyntökirjeeksi valitaan suomenkielinen PDF, ei Outlook-viestiä (.msg) eikä ruotsinkielistä versiota
 L._ASETTAJAT = {}

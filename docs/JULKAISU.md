@@ -9,11 +9,11 @@ gist.github.com kulkee sen ohi. Tavallinen varasto `omistaja/nimi` toimii muissa
 
 | Osa | Mitä saa tehdä | Millä oikeudella |
 |---|---|---|
-| Päivitysajo (agentti) | työntää `data.json`-tiedoston gistiin | classic token, jolla on vain gist-oikeus (ei repo- eikä tilioikeuksia); `tools/ghpush.py` kieltäytyy muista tiedostoista, tunnuksilta näyttävästä sisällöstä ja datasta, joka ei läpäise `validate`-tarkistusta |
+| Päivitysajo (agentti) | työntää `data.json`-tiedoston gistiin (`lakitv.py julkaise` → `ghpush.py`) | classic token, jolla on vain gist-oikeus (ei repo- eikä tilioikeuksia); avain luetaan asetustiedostosta (`asetukset/jakelu` tallennettuna `out_dir`-kansioon) ja annetaan vain ympäristömuuttujassa – se ei kulje komentorivin eikä raportin kautta; `tools/ghpush.py` kieltäytyy muista tiedostoista, tunnuksilta näyttävästä sisällöstä ja datasta, joka ei läpäise `validate`-tarkistusta |
 | Koodivarasto (tämä) | rakentaa ja julkaisee sivuston | vain omistaja työntää koodia (GitHub Desktop); Actions-oikeudet vain lukuun ja Pages-julkaisuun |
 | Actions-työnkulku `pages.yml` | hakee datan gististä kaksi kertaa tunnissa, tarkistaa sen (`validate`) ja julkaisee, jos data on uudempi kuin sivustolla | ei tunnuksia; gistin raw-osoite on luettavissa ilman kirjautumista |
 | Sivun suora data | julkaistu sivu hakee itse gistin uusimman `data.json`-tiedoston ja näyttää sen, jos se on uudempi kuin sivuston kopio | ei tunnuksia; vain rakennetarkistuksen läpäisevä ja vähintään puolet nykyisestä juttumäärästä sisältävä data kelpaa |
-| `vahti.yml` | hälyttää sähköpostilla, jos data on yli 20 tuntia vanhaa | ei tunnuksia |
+| `vahti.yml` | hälyttää sähköpostilla aamulla (10.10) ja illalla (18.40), jos datavarastossa ei ole viimeisimmän ajastetun ajon (6.45 / 14.45) jälkeistä päivitystä | ei tunnuksia |
 
 Vaikka ajon avain vuotaisi, sillä ei pääse koodivarastoon eikä tiliin: pahimmillaan gistiin voisi työntää väärää dataa, jonka `validate` ja sivun rakenne rajaavat tekstisisällöksi. Avain kannattaa silti uusia vuosittain (tokenin voimassaoloaika).
 
@@ -23,11 +23,25 @@ Vaikka ajon avain vuotaisi, sillä ei pääse koodivarastoon eikä tiliin: pahim
 2. **Avain.** GitHub → Settings → Developer settings → Personal access tokens → *Tokens (classic)* → Generate new token (classic). Nimi `laki-tv-ajo`, voimassaolo enintään vuosi, rasti vain **gist**. Kopioi avain talteen; se näytetään vain kerran.
 3. **Ajon asetus.** Avaa LAKI-TV-artifakti omistajana → NÄPPÄIMISTÖ → JAKELU → *Viestikanavat (ylläpitäjä)*: datavarasto `gist:TUNNUS` ja avain. Ne tallentuvat sivun omistajalle rajattuun asetukseen (`asetukset/jakelu`), josta vain päivitysajo lukee ne.
 4. **Koodivarasto.** Settings → Pages → Source: *GitHub Actions*. Gistin tunnus (8cdf55f7…) on työnkulussa oletusarvona; toisen gistin tai varaston voi antaa muuttujalla `LAKITV_DATA_REPO` (`gist:TUNNUS` tai `omistaja/nimi`) tai suoralla osoitteella `LAKITV_DATA_URL` (Settings → Secrets and variables → Actions → Variables). Oma verkkotunnus: muuttuja `LAKITV_DOMAIN` ja DNS-CNAME GitHub Pagesiin.
-5. **Tarkistus.** Seuraavan ajon raportissa lukee "GitHub-peilaus: commit …". Actions-välilehdellä `pages` ajaa kaksi kertaa tunnissa; ilman uutta dataa se päättyy heti ("Ei uutta dataa – ei julkaista"). Sivun 198 TILA rivillä *Päivitetty* lukee **SUORA**, kun näytetty data on haettu gististä eikä sivuston omasta kopiosta.
+5. **Tarkistus.** Seuraavan ajon raportissa lukee "PEILAUS OK: commit …" (tai syy, miksi peilaus ei onnistunut). Asetukseen kannattaa lisätä myös `data_url` (gistin raw-osoite, esim. `https://gist.githubusercontent.com/OMISTAJA/TUNNUS/raw/data.json`): sen avulla työkalu varmistaa työnnön myös lukijan näkemästä osoitteesta, ei vain gistin HEAD-commitista. Actions-välilehdellä `pages` ajaa kaksi kertaa tunnissa; ilman uutta dataa se päättyy heti ("Ei uutta dataa – ei julkaista"). Sivun 198 TILA rivillä *Päivitetty* lukee **SUORA**, kun näytetty data on haettu gististä eikä sivuston omasta kopiosta.
 
 ## Miksi sivu hakee datan itse
 
 GitHub viivästää ja jättää väliin ajastettuja Actions-ajoja etenkin uusissa varastoissa (dokumentoitu rajoitus: "schedule event can be delayed … some queued jobs may be dropped"). Siksi sivusto ei nojaa pelkästään rakennusajoon: `tools/website.py --data-url` kirjoittaa sivulle `<meta name="lakitv-data">`-rivin, ja sivu hakee käynnistyessään gistin uusimman datan (CORS sallittu, välimuisti 5 min). Uudempi data talletetaan välilehden `sessionStorage`-muistiin ja sivu latautuu uudelleen samalle sivulle – heti, jos lukija ei ole vielä tehnyt mitään, muuten seuraavassa sivunvaihdossa. Artifaktissa ja paikallisessa kopiossa meta-riviä ei ole, eikä mitään haeta. Syötteet (RSS, JSON, kalenteri, viikkokatsaus) päivittyvät vasta rakennusajossa.
+
+## Peilauksen järjestys ja varmistus
+
+Päivitysajo ajaa `python3 lakitv.py julkaise SIVU data.json uusi.html --out jakelu --asetukset aset/asetukset/jakelu.json`:
+komento tarkistaa datan (`validate`), kirjoittaa sivun (`inject`) ja jakelutiedostot (`feed`, maanantaina `viikkokatsaus`) ja työntää
+`data.json`-tiedoston gistiin (`ghpush.py`, enintään kolme yritystä) sekä varmistaa työnnön: gistin HEAD on työnnetty commit ja raw-osoitteen
+`paivitetty` on sama kuin oma. Vasta sen jälkeen ajo julkaisee artifaktin. Järjestys on tarkoituksellinen: 17.10. ja 19.10.2026 ajo julkaisi
+artifaktin mutta katkesi ennen peilausta (19.10. käyttöraja), jolloin verkkosivusto jäi aamun dataan. Kun peilaus on osa samaa komentoa kuin
+sivun kirjoitus, mallilla ei ole väliin jäävää askelta, joka voisi jäädä tekemättä. Jos ajo katkeaa peilauksen ja julkaisun välissä, sivusto on
+ajan tasalla ja artifakti jäljessä; varmistusajo (8.15 / 16.15) huomaa vanhan sivun ja tekee päivityksen uudelleen. Varmistusajot ajavat
+pelkän peilauksen komennolla `lakitv.py peilaa`, jos artifakti on ajan tasalla mutta gist ei.
+
+Huomaa, että ajastetut ajot käyttävät saman claude.ai-tilin käyttörajaa kuin vuorovaikutteiset istunnot: raskas päivätyö samalla tilillä voi
+estää ajon ("usage limit reached" ajon lokissa). Vahti hälyttää silloin sähköpostilla.
 
 ## Käsin päivitys
 

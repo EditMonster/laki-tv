@@ -19,7 +19,14 @@ Käyttö (data.json = sivun JSON-lohko):
   python3 lakitv.py feed data.json [--out hakemisto]   feed.xml/-sv/-en, feed.json, lakitv.md, kalenteri.txt/-sv/-en (iCalendar) sivun rinnalle julkaistaviksi
   python3 lakitv.py viikkokatsaus data.json [--out viikkokatsaus] [--kieli fi]  viime viikon katsaus HTML + PDF (maanantaisin)
   python3 lakitv.py post kuorma.json WEBHOOK_URL       lähettää Slack-/Teams-kuorman webhookiin
+  python3 lakitv.py post kuorma.json --asetukset jakelu.json [--kanava slack|teams]  sama, osoite asetustiedostosta (ei komentoriville)
   python3 lakitv.py inject SIVU.html data.json UUSI.html  kirjoita JSON takaisin; muu sivu pysyy tavulleen samana
+  python3 lakitv.py julkaise SIVU.html data.json UUSI.html [--out jakelu] [--asetukset jakelu.json] [--viesti "LAKI-TV 19.10. klo 14.48"]
+                                                       validate + inject + feed (+ viikkokatsaus maanantaina) + peilaus datavarastoon
+                                                       varmistuksineen, yhdellä komennolla ENNEN artefaktin julkaisua (paluukoodi 3 = peilaus epäonnistui)
+  python3 lakitv.py peilaa data.json --asetukset jakelu.json [--viesti …]  vain peilaus + varmistus (varmistusajot)
+Asetustiedosto on ArtifactData-dokumentti asetukset/jakelu tallennettuna tiedostoksi (out_dir): github_repo, github_token,
+data_url (datavaraston raw-osoite varmistusta varten), slack_webhook, teams_webhook. Avaimet eivät kulje komentorivin kautta.
 """
 import sys, re, json, html, time, hashlib, datetime, subprocess, tempfile, os
 import urllib.request, urllib.parse, urllib.error
@@ -1321,7 +1328,115 @@ def api_url_for(url):
     m = re.match(r"https://valtioneuvosto\.fi/hanke\?tunnus=([^&#]+)", url or "")
     if m:
         return ("hanke", urllib.parse.unquote(m.group(1)))
+    m = re.match(r"https://eur-lex\.europa\.eu/legal-content/([A-Z]{2})/[A-Z]+/\?uri=CELEX(?::|%3A)([0-9A-Z()]+)", url or "")
+    if m:
+        return ("eurlex", m.group(2), m.group(1))
     return None
+
+
+DIR_SPARQL = """PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+SELECT ?celex ?date ?pub ?eif (MIN(?tr) AS ?trans) ?title WHERE {
+ ?w cdm:resource_legal_id_celex ?celex ; cdm:work_date_document ?date ; cdm:official-journal-act_date_publication ?pub .
+ FILTER(?pub >= "%s"^^xsd:date)
+ FILTER(REGEX(STR(?celex), "^3[0-9]{4}L[0-9]{4}$"))
+ OPTIONAL { ?w cdm:resource_legal_date_entry-into-force ?eif . }
+ OPTIONAL { ?w cdm:directive_date_transposition ?tr . }
+ ?e cdm:expression_belongs_to_work ?w ; cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/FIN> ; cdm:expression_title ?title .
+} GROUP BY ?celex ?date ?pub ?eif ?title ORDER BY DESC(?pub) LIMIT 60"""
+
+
+def _sparql(q, timeout=90):
+    url = "https://publications.europa.eu/webapi/rdf/sparql?" + urllib.parse.urlencode({"query": q, "format": "application/sparql-results+json"})
+    return json.loads(get_text(url, timeout=timeout, accept="application/sparql-results+json"))["results"]["bindings"]
+
+
+def eurlex_url(celex, lang="FI"):
+    return f"https://eur-lex.europa.eu/legal-content/{lang}/TXT/?uri=CELEX:{celex}"
+
+
+def _pvm_fi(iso):
+    y, m, d = iso[:10].split("-")
+    return f"{int(d)}.{int(m)}.{y}"
+
+
+def src_eu_direktiivit(days=21):
+    """Uudet direktiivit sillä hetkellä, kun ne julkaistaan EU:n virallisessa lehdessä (EU:n julkaisutoimiston CELLAR-rajapinta):
+    viralliset nimikkeet suomeksi, ruotsiksi ja englanniksi, antopäivä (hyväksyminen/allekirjoitus), julkaisupäivä,
+    voimaantulo ja täytäntöönpanon määräaika. Tyhjä tulos on tavallinen (direktiivejä annetaan vain muutamia kuukaudessa)."""
+    since = (now().date() - datetime.timedelta(days=days)).isoformat()
+    res = _sparql(DIR_SPARQL % since)
+    other = {}
+    if res:
+        vals = " ".join(sorted({f'"{b["celex"]["value"]}"^^xsd:string' for b in res}))
+        for lang in ("SWE", "ENG"):
+            try:
+                q = ("PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> "
+                     "SELECT DISTINCT ?celex ?title WHERE { VALUES ?celex { %s } ?w cdm:resource_legal_id_celex ?celex . "
+                     "?e cdm:expression_belongs_to_work ?w ; cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/%s> ; "
+                     "cdm:expression_title ?title . }") % (vals, lang)
+                other[lang] = {b["celex"]["value"]: b["title"]["value"] for b in _sparql(q)}
+            except Exception:
+                other[lang] = {}
+    out, seen = [], set()
+    for b in res:
+        celex = b["celex"]["value"]
+        if celex in seen:
+            continue
+        seen.add(celex)
+        title = " ".join(b["title"]["value"].split())
+        num = re.search(r"\(EU\)\s*(\d{4}/\d+)", title)
+        tunnus = f"Direktiivi (EU) {num.group(1)}" if num else celex
+        laatija = ("komissio" if re.match(r"(?i)komission", title) else
+                   "EP ja neuvosto" if re.match(r"(?i)euroopan parlamentin ja neuvoston", title) else
+                   "neuvosto" if re.match(r"(?i)neuvoston", title) else "")
+        g = lambda k: (b.get(k, {}).get("value") or "")[:10] or None
+        hyv, pub, eif, tr = g("date"), g("pub"), g("eif"), g("trans")
+        kuv = f"Annettu {_pvm_fi(hyv) if hyv else '?'}; julkaistu EUVL:ssä {_pvm_fi(pub) if pub else '?'}"
+        if eif:
+            kuv += f"; voimaan {_pvm_fi(eif)}"
+        if tr:
+            kuv += f"; täytäntöönpano viimeistään {_pvm_fi(tr)}"
+        out.append({"kanava": "eu", "url": eurlex_url(celex), "otsikko": title[:300], "julkaistu": pub,
+                    "kuvaus": f"{kuv}. Laatija: {laatija or '?'}.", "tunnus": tunnus, "celex": celex, "laatija": laatija,
+                    "hyvaksytty": hyv, "julkaistu_euvl": pub, "voimaantulo": eif, "taytantoonpano": tr,
+                    "eli": f"https://eur-lex.europa.eu/eli/{'dir_impl' if 'TÄYTÄNTÖÖNPANODIREKTIIVI' in title.upper() else 'dir_del' if 'DELEGOITU' in title.upper() else 'dir'}/{num.group(1)}/oj" if num else None,
+                    "otsikko_sv": " ".join(other.get("SWE", {}).get(celex, "").split())[:300] or None,
+                    "otsikko_en": " ".join(other.get("ENG", {}).get(celex, "").split())[:300] or None,
+                    "vaihe": "Julkaistu EUVL:ssä", "valmis": True})
+    out.sort(key=lambda x: (0 if x["laatija"] != "komissio" else 1, "".join(chr(255 - ord(c)) for c in x["julkaistu"] or "")))
+    return out
+
+
+ADOPT_RE = re.compile(r"(?i)\b(adopts?|adopted|adoption|final (green )?light|final approval|formally approve[sd]?|signs? off|gives? (its )?green light)\b")
+
+
+ADOPT_NOT = re.compile(r"(?i)conclusions|mandate|general approach|negotiating position|sanction|restrictive measures|statement|remarks|declaration|budget")
+
+
+def src_neuvosto():
+    """Neuvoston lopulliset hyväksymispäätökset (Council of the EU, lehdistötiedotteiden RSS): säädös on hyväksytty, mutta
+    ei vielä julkaistu virallisessa lehdessä. Sivut torjuvat skriptin (403), joten tiedote luetaan WebFetchillä."""
+    t = get_text("https://www.consilium.europa.eu/en/rss/pressreleases.ashx", timeout=40)
+    items = re.findall(r"(?s)<item>(.*?)</item>", t)
+    if not items:
+        raise RuntimeError("RSS-syötteessä ei ole kohteita (rakenne muuttunut?)")
+    out = []
+    for it in items:
+        tag = lambda n: clean((re.search(rf"(?s)<{n}[^>]*>(.*?)</{n}>", it) or [None, ""])[1])
+        title, link, desc = tag("title"), tag("link"), tag("description")
+        upd = tag("a10:updated") or tag("pubDate")
+        if not link or not ADOPT_RE.search(title) or ADOPT_NOT.search(title):
+            continue
+        txt = f"{title} {desc}"
+        out.append({"kanava": "eu", "url": link, "otsikko": title, "julkaistu": to_hki(upd) if re.match(r"\d{4}-", upd) else None,
+                    "kuvaus": desc[:400], "direktiivi": bool(re.search(r"(?i)directive", txt)),
+                    "asetus": bool(re.search(r"(?i)regulation", txt)), "vaihe": "Hyväksytty neuvostossa", "valmis": True,
+                    "ohje": "Lue tiedote WebFetchillä (consilium.europa.eu torjuu skriptin)."})
+    return out
+
+
+ZERO_OK = {"EU-DIR", "NEUVOSTO"}   # lähteet, joilla tyhjä tulos on tavallinen: ei LÄHDE HILJAA -hälytystä
 
 
 SOURCES = {
@@ -1346,9 +1461,11 @@ SOURCES = {
     "VakO": lambda: src_tuomioistuimet("https://www.tuomioistuimet.fi/tuomioistuinten-ratkaisut/vakuutusoikeuden-ratkaisut/",
                                        r"^VakO \d+:20\d\d$"),
     "EDPB": src_edpb,
+    "EU-DIR": src_eu_direktiivit,   # uudet direktiivit EU:n virallisessa lehdessä (julkaisuhetki)
+    "NEUVOSTO": src_neuvosto,       # neuvoston lopullinen hyväksyminen (hyväksymishetki, ennen julkaisua)
 }
 SOURCE_BASE = {"OKV": "finlex", "EOA": "finlex"}   # lähteen perusta vaihtui: linkkimäärän historia aloitetaan alusta (ei väärää HILJAA-hälytystä)
-PER_SOURCE = {"HAO": 10, "HE": 20, "LAUSUNNOT": 20, "TT": 6, "MAO": 6, "EIT": 10, "ICJ": 8, "EUT": 40, "HO": 8, "VakO": 8, "EDPB": 10}
+PER_SOURCE = {"HAO": 10, "HE": 20, "LAUSUNNOT": 20, "TT": 6, "MAO": 6, "EIT": 10, "ICJ": 8, "EUT": 40, "HO": 8, "VakO": 8, "EDPB": 10, "EU-DIR": 20, "NEUVOSTO": 10}
 
 
 def cmd_scan(p, hours=None, include_seen=False):
@@ -1387,7 +1504,7 @@ def cmd_scan(p, hours=None, include_seen=False):
             st["aika"] = now().strftime("%Y-%m-%dT%H:%M"); st["n"] = len(lst); st.pop("virhe", None)
             hist = [h for h in st.get("hist", []) if isinstance(h, int)]
             typical = sorted(hist)[len(hist) // 2] if hist else None
-            if len(lst) == 0 or (typical and len(lst) < typical / 2):
+            if name not in ZERO_OK and (len(lst) == 0 or (typical and len(lst) < typical / 2)):
                 quiet.append(f"{name} {len(lst)} linkkiä (tavallisesti {typical if typical is not None else '?'})")
                 st["hiljaa"] = now().strftime("%Y-%m-%dT%H:%M")
             else:
@@ -1467,12 +1584,39 @@ def docx_text(b):
     return "\n".join(l for l in (o.strip() for o in out) if l)
 
 
+CELLAR_LANG = {"FI": "fin", "SV": "swe", "EN": "eng"}
+
+
+def cellar_text(celex, url, maxc, lang="FI"):
+    """EUR-Lex torjuu skriptin (tyhjä vastaus), joten säädöksen teksti haetaan EU:n julkaisutoimiston CELLAR-palvelusta
+    (sama virallinen teksti, XHTML) kielivalinnalla."""
+    src = f"https://publications.europa.eu/resource/celex/{celex}"
+    req = urllib.request.Request(src, headers={"User-Agent": UA, "Accept": "application/xhtml+xml, text/html;q=0.9",
+                                               "Accept-Language": CELLAR_LANG.get(lang, "fin")})
+    with _OPENER.open(req, timeout=60) as r:
+        b = r.read(MAX_FETCH + 1)
+    b = _gunzip(b) if b[:2] == b"\x1f\x8b" else b
+    h = decode_body(b, "charset=utf-8")
+    h = re.sub(r"(?is)<(script|style)\b[^>]*>.*?</\1>", " ", h)
+    h = re.sub(r"(?i)<(/p|br|/div|/tr|/h\d)\b[^>]*>", "\n", h)
+    t = html.unescape(re.sub(r"<[^>]+>", " ", h))
+    t = "\n".join(" ".join(l.split()) for l in t.splitlines())
+    t = re.sub(r"\n{2,}", "\n", t).strip()
+    t = re.sub(r"^L_\d+\w*\.\d+\.fmx\.xml\s*", "", t)
+    m = re.search(r"(?m)^(.*(DIREKTIIVI|ASETUS|PÄÄTÖS|DIREKTIV|FÖRORDNING|BESLUT|DIRECTIVE|REGULATION|DECISION)\b.*)$", t)
+    out = {"url": url, "otsikko": m.group(1)[:300] if m else "", "julkaistu": None, "lahde_teksti": src}
+    out["teksti"] = t[:maxc] + (f"\n[… katkaistu, yhteensä {len(t)} merkkiä]" if len(t) > maxc else "")
+    return out
+
+
 def _text(url, maxc):
     api = api_url_for(url)
     if api and api[0] == "he":
         return he_text(api[1], api[2], url, maxc)
     if api and api[0] == "hanke":
         return hanke_text(api[1], url, maxc)
+    if api and api[0] == "eurlex":
+        return cellar_text(api[1], url, maxc, api[2])
     if blocked_host(url):
         raise ValueError("palvelin torjuu automaattiset haut (Cloudflare); käytä Finlexin, eduskunnan tai Hankeikkunan osoitetta")
     out = {"url": url}
@@ -1517,6 +1661,9 @@ def _text(url, maxc):
 def check_source(x):
     """Lähde vastaa, ja 'virallinen tiivistelmä' löytyy lähteestä sanatarkasti (ensimmäiset 12 sanaa)."""
     u = x.get("lahde") or ""
+    if (urllib.parse.urlsplit(u).hostname or "").lower().endswith("consilium.europa.eu"):
+        print(f"HUOM: {x.get('id')}: neuvoston sivut torjuvat skriptin; varmista tiedote WebFetchillä (osoitetta ei tarkistettu).")
+        return True
     if blocked_host(u) and not api_url_for(u):
         print(f"HUOM: {x.get('id')}: lähde {urllib.parse.urlsplit(u).hostname} torjuu automaattiset haut, joten osoitetta ei voitu tarkistaa. "
               f"Käytä mieluummin Finlexin osoitetta (oikeuskansleri, oikeusasiamies, tietosuojavaltuutettu) tai eduskunnan/Hankeikkunan osoitetta.")
@@ -2612,6 +2759,182 @@ def cmd_stamp(p):
     print("paivitetty =", d["paivitetty"], f"({len(odottaa)} linkkiä merkitty nähdyiksi, {uusia} uutta juttua tänään)")
 
 
+# ---------------------------------------------------------------- julkaisu ja peilaus
+# Datavarasto (gist) on se, mistä verkkosivusto ja lukijan sivu hakevat datan. Peilaus tehdään samassa komennossa kuin
+# sivun ja jakelutiedostojen kirjoitus – ENNEN artefaktin julkaisua – jotta ajon katkeaminen (käyttöraja, verkkovirhe,
+# istunnon päättyminen) julkaisun jälkeen ei jätä sivustoa vanhaksi. Avaimet luetaan asetustiedostosta (ArtifactData
+# asetukset/jakelu tallennettuna out_dir-kansioon) ja annetaan ghpush.py:lle vain ympäristömuuttujassa: ne eivät kulje
+# komentorivin, raportin tai tulosteen kautta.
+MIRROR_WAIT = float(os.environ.get("LAKITV_PEILAUS_ODOTUS", "1"))   # testit: 0 = ei odotuksia yritysten välillä
+SECRET_PAT = re.compile(r"ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|gh[ousr]_[A-Za-z0-9]{20,}|(?:https?://)?(?:hooks\.slack\.com/services/|[\w.-]*webhook\.office\.com/|[\w.-]*logic\.azure\.com/)\S+")
+
+
+def mask(s, secrets=()):
+    """Peittää avaimet ja webhook-osoitteet tulosteesta."""
+    for t in secrets:
+        if t and len(str(t)) >= 8:
+            s = s.replace(str(t), "[AVAIN]")
+    return SECRET_PAT.sub("[AVAIN]", s)
+
+
+def read_settings(p):
+    """Jakeluasetukset (asetukset/jakelu-dokumentti JSON-tiedostona). Puuttuva tiedosto = ei asetuksia."""
+    if not p:
+        return {}
+    try:
+        d = load(p)
+    except (OSError, ValueError) as e:
+        print(f"HUOM: asetustiedostoa ei saatu luettua ({type(e).__name__})")
+        return {}
+    return d if isinstance(d, dict) else {}
+
+
+def find_tool(name):
+    """Työkalu samasta kansiosta kuin tämä tiedosto, työhakemistosta tai tools/-kansiosta."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    return next((c for c in (os.path.join(here, name), name, os.path.join("tools", name)) if os.path.isfile(c)), None)
+
+
+def gist_git_url(repo):
+    """gist:TUNNUS -> https://gist.github.com/TUNNUS.git; omistaja/varasto -> https://github.com/omistaja/varasto.git"""
+    return f"https://gist.github.com/{repo[5:]}.git" if repo.startswith("gist:") else f"https://github.com/{repo}.git"
+
+
+def remote_head(repo, remote=None):
+    """Datavaraston HEAD-commit (git ls-remote); jos HEAD ei osoita mihinkään, main, master tai ainoa haara. None, jos ei saatu."""
+    try:
+        r = subprocess.run(["git", "ls-remote", remote or gist_git_url(repo)], capture_output=True, text=True, timeout=60,
+                           env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+        if r.returncode != 0:
+            return None
+        refs = {n: h for h, n in re.findall(r"^([0-9a-f]{40})\t(\S+)$", r.stdout, re.M)}
+        heads = {n[len("refs/heads/"):]: h for n, h in refs.items() if n.startswith("refs/heads/")}
+        return refs.get("HEAD") or heads.get("main") or heads.get("master") or (next(iter(heads.values())) if len(heads) == 1 else None)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def remote_stamp(data_url):
+    """Datavaraston raw-osoitteen paivitetty-arvo (välimuistin ohittava kysely); None, jos ei saatu."""
+    try:
+        b = fetch(f"{data_url}{'&' if '?' in data_url else '?'}v={int(time.time())}", timeout=30, tries=1)
+        return json.loads(b.decode("utf-8")).get("paivitetty")
+    except Exception:
+        return None
+
+
+def verify_mirror(repo, data_url, stamp, commit, wait=60, remote=None):
+    wait *= MIRROR_WAIT
+    """Varmistaa työnnön: HEAD on työnnetty commit (git ls-remote) ja raw-osoitteen paivitetty on oma (jos osoite tiedossa).
+    Raw-osoite voi laahata hetken committia jäljessä, siksi odotetaan enintään wait sekuntia. Palauttaa (ok, selite)."""
+    deadline = time.time() + wait
+    note = "työntöä ei saatu varmistettua"
+    while True:
+        head = remote_head(repo, remote)
+        head_ok = bool(head and commit and head.startswith(commit)) if commit not in (None, "ennallaan") else bool(head)
+        got = remote_stamp(data_url) if data_url else None
+        if data_url and got == stamp and (head_ok or head is None):
+            return True, f"datavaraston paivitetty = {got}" + (f", HEAD {head[:10]}" if head else "")
+        if not data_url and head_ok:
+            return True, f"datavaraston HEAD {head[:10]} = työnnetty commit"
+        if head is not None and not head_ok:
+            note = f"datavaraston HEAD {head[:10]} ei ole työnnetty commit {str(commit)[:10]}"
+        elif data_url and got is None:
+            note = "datavaraston raw-osoitetta ei saatu luettua"
+        elif data_url and got != stamp:
+            note = f"datavaraston paivitetty {got} ≠ oma {stamp}"
+        if time.time() >= deadline:
+            return False, note
+        time.sleep(5 * MIRROR_WAIT)
+
+
+def mirror(data_path, settings, message=None, data_url=None, tries=3):
+    """Työntää data.json-tiedoston datavarastoon ghpush.py:llä (avain vain ympäristömuuttujassa) ja varmistaa työnnön.
+    Palauttaa (tila, viesti): tila True = peilattu ja varmistettu, False = epäonnistui, None = asetus puuttuu (ohitettu)."""
+    repo, token = str(settings.get("github_repo") or "").strip(), str(settings.get("github_token") or "").strip()
+    data_url = data_url or settings.get("data_url")
+    remote = settings.get("github_remote")   # vain testit tai oma git-palvelin: git-osoite gist.github.comin sijaan
+    if not repo or not token:
+        return None, "PEILAUS: asetus puuttuu (github_repo tai github_token)"
+    if not re.fullmatch(r"[\w.-]+/[\w.-]+|gist:[0-9a-fA-F]{8,}", repo):
+        return False, "PEILAUS EPÄONNISTUI: github_repo ei ole muodossa gist:tunnus tai omistaja/varasto"
+    tool = find_tool("ghpush.py")
+    if not tool:
+        return False, "PEILAUS EPÄONNISTUI: ghpush.py puuttuu (hae tools/ghpush.py.txt ja kopioi työhakemistoon nimelle ghpush.py)"
+    stamp = load(data_path).get("paivitetty") or ""
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})", stamp)
+    message = message or (f"LAKI-TV {int(m.group(3))}.{int(m.group(2))}. klo {m.group(4)}.{m.group(5)}" if m else "LAKI-TV: sisällön päivitys")
+    env = {**os.environ, "GITHUB_TOKEN": token}
+    last = "ghpush ei tulostanut mitään"
+    for i in range(tries):
+        try:
+            r = subprocess.run([sys.executable, tool, repo, "-m", message, *(["--remote", remote] if remote else []), f"{data_path}=data.json"],
+                               env=env, capture_output=True, text=True, timeout=300)
+            out = mask((r.stdout + "\n" + r.stderr).strip(), [token])
+        except subprocess.TimeoutExpired:
+            r, out = None, "ghpush: aikakatkaisu (300 s)"
+        if r is None or r.returncode != 0:
+            last = out[-400:]
+            if "validate hylkäsi" in out or "sallittujen" in out or "tunnukselta" in out:   # ei korjaannu toistamalla
+                return False, f"PEILAUS EPÄONNISTUI: {last}"
+            time.sleep(5 * (i + 1) * MIRROR_WAIT)
+            continue
+        cm = re.search(r"OK: commit ([0-9a-f]{7,40})", out)
+        commit = cm.group(1) if cm else ("ennallaan" if "Ei muutoksia" in out else None)
+        ok, note = verify_mirror(repo, data_url, stamp, commit, remote=remote)
+        if ok:
+            return True, f"PEILAUS OK: commit {commit[:10] if commit and commit != 'ennallaan' else commit}; {note}"
+        last = note
+        time.sleep(5 * (i + 1) * MIRROR_WAIT)
+    return False, f"PEILAUS EPÄONNISTUI: {mask(last, [token])}"
+
+
+def cmd_peilaa(data, asetukset, message=None, data_url=None):
+    """Vain peilaus: data.json datavarastoon ja työnnön varmistus (varmistusajot)."""
+    state, msg = mirror(data, read_settings(asetukset), message, data_url)
+    print(msg)
+    if state is False:
+        sys.exit(3)
+
+
+def cmd_julkaise(page, data, out, outdir="jakelu", asetukset=None, message=None, data_url=None, no_mirror=False, viikko=None):
+    """Yksi komento ennen artefaktin julkaisua: validate (virheet pysäyttävät, mitään ei kirjoiteta) -> UUSI.html (inject)
+    -> jakelutiedostot (feed; maanantaina myös viikkokatsaus) -> peilaus datavarastoon varmistuksineen.
+    Paluukoodi 0 = kaikki tehty; 1 = validate hylkäsi; 3 = sivu ja jakelutiedostot tehty, mutta peilaus epäonnistui
+    (julkaise artefakti silti ja kirjaa syy raporttiin)."""
+    d = load(data)
+    errs, warns = validate(d)
+    for w in warns:
+        print("HUOM:", w)
+    if errs:
+        for e in errs:
+            print("VIRHE:", e)
+        sys.exit("Ei kirjoitettu: korjaa virheet ja aja julkaise uudelleen.")
+    try:
+        age_h = (now() - datetime.datetime.fromisoformat(d.get("paivitetty"))).total_seconds() / 3600
+        if age_h > 0.75:
+            print(f"HUOM: paivitetty on {age_h:.1f} h vanha – ajoitko stamp-komennon ennen julkaisua?")
+    except (TypeError, ValueError):
+        print("HUOM: paivitetty puuttuu tai ei jäsenny")
+    cmd_inject(page, data, out)
+    cmd_feed(data, outdir)
+    if viikko is None:
+        viikko = now().weekday() == 0
+    if viikko:
+        try:
+            cmd_viikkokatsaus(data, os.path.join(outdir, "viikkokatsaus"))
+        except Exception as e:   # viikkokatsaus ei saa estää julkaisua
+            print(f"HUOM: viikkokatsaus ei onnistunut ({type(e).__name__}); julkaise ilman sitä")
+    if no_mirror:
+        print("PEILAUS: ohitettu (--ei-peilausta)")
+        return
+    state, msg = mirror(data, read_settings(asetukset), message, data_url)
+    print(msg)
+    if state is False:
+        print(f"{out} ja {outdir}/ ovat valmiit: julkaise artefakti silti ja kirjaa raporttiin, että peilaus epäonnistui.")
+        sys.exit(3)
+
+
 # ---------------------------------------------------------------- CLI
 def main(a):
     if len(a) < 2 or a[1] in ("-h", "--help", "help"):
@@ -2655,7 +2978,19 @@ def main(a):
     elif c == "viikkokatsaus":
         cmd_viikkokatsaus(a[2], opt("--out", "viikkokatsaus"), opt("--kieli", "fi"))
     elif c == "post":
-        cmd_post(a[2], a[3])
+        if "--asetukset" in a:   # webhook-osoite asetustiedostosta (slack_webhook / teams_webhook), ei komentoriviltä
+            kanava = opt("--kanava", "slack")
+            url = read_settings(opt("--asetukset")).get(f"{kanava}_webhook") or ""
+            if not str(url).strip():
+                print(f"Ei lähetetty: {kanava}_webhook puuttuu asetuksista."); return
+            cmd_post(a[2], str(url).strip())
+        else:
+            cmd_post(a[2], a[3])
+    elif c == "peilaa":
+        cmd_peilaa(a[2], opt("--asetukset"), opt("--viesti"), opt("--data-url"))
+    elif c == "julkaise":
+        cmd_julkaise(a[2], a[3], a[4], opt("--out", "jakelu"), opt("--asetukset"), opt("--viesti"), opt("--data-url"),
+                     no_mirror="--ei-peilausta" in a, viikko=True if "--viikkokatsaus" in a else (False if "--ei-viikkokatsausta" in a else None))
     else:
         print(__doc__)
         sys.exit(2)

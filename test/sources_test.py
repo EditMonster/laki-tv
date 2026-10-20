@@ -1,6 +1,6 @@
 """Uusien skannerilähteiden (10/2026) jäsennystestit tallennetuilla sivuilla: ei verkkoa.
 Yrityskaupat (KKV, komissio), PeVL, EU-asetukset, KVL, lautakunnat (YVTltk, KRIL), komission kilpailutiedotteet."""
-import sys, json, re, os as _os
+import datetime, sys, json, re, os as _os
 _ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT + "/tools")
 import lakitv as L
@@ -118,6 +118,31 @@ r = L._text("https://ec.europa.eu/commission/presscorner/detail/en/ip_26_2178", 
 ok(_pc_urls == ["https://ec.europa.eu/commission/presscorner/api/documents?reference=IP/26/2178&language=en"] and r["julkaistu"] == "2026-10-19"
    and r["otsikko"].startswith("Commission sends Statement") and r["teksti"].startswith("The European Commission has informed KKR & Co.") and "\nThe merger investigation\n" in r["teksti"]
    and r["teksti"].endswith("Point one\nPoint two"), "text: presscorner-tiedote rajapinnasta (viite, päivä, teksti)", r)
+
+# 10. scan: lähteen omaa aikaikkunaa käyttävät (EU-ASETUS, EU-DIR, EU-YK, KVL) eivät karsiudu since-rajaan; muut karsiutuvat; nähdyt eivät tule uudelleen
+import tempfile, os
+old_day = (datetime.date.today() - datetime.timedelta(days=9)).isoformat()
+stub = {
+    "EU-ASETUS": lambda: [{"kanava": "eu", "url": "https://eur-lex.europa.eu/eli/reg/2026/9999/oj", "tunnus": "Asetus (EU) 2026/9999", "otsikko": "Testiasetus", "julkaistu": old_day, "valmis": True}],
+    "KKO": lambda: [{"kanava": "kko", "url": "https://finlex.fi/fi/oikeuskaytanto/korkein-oikeus/ennakkopaatokset/2026/999", "tunnus": "KKO:2026:999", "otsikko": "Vanha", "julkaistu": old_day + "T10:00", "valmis": True}],
+    "KVL": lambda: [{"kanava": "vero", "url": "https://www.vero.fi/syventavat-vero-ohjeet/ennakkoratkaisut/kvl99999/", "tunnus": "KVL:2026/99", "otsikko": "KVL:2026/99", "julkaistu": old_day, "valmis": True}],
+}
+_src, _per = L.SOURCES, dict(L.PER_SOURCE)
+L.SOURCES = stub
+with tempfile.TemporaryDirectory() as td:
+    cwd = os.getcwd(); os.chdir(td)
+    try:
+        dd = {"paivitetty": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S+03:00"), "kanavat": {k: [] for k in L.CH_KEYS}, "arkisto": [], "_nahty": [L.url_hash("https://www.vero.fi/syventavat-vero-ohjeet/ennakkoratkaisut/kvl99999/")]}
+        json.dump(dd, open("d.json", "w", encoding="utf-8"))
+        import io, contextlib
+        with contextlib.redirect_stdout(io.StringIO()):
+            L.cmd_scan("d.json")
+        e = json.load(open("ehdokkaat.json", encoding="utf-8"))
+        tun = sorted(x["tunnus"] for x in e["ehdokkaat"])
+        ok(tun == ["Asetus (EU) 2026/9999"], "scan: EU-ASETUS ohittaa since-rajan (oma ikkuna), vanha KKO karsiutuu, nähty KVL ei tule uudelleen", tun)
+    finally:
+        os.chdir(cwd)
+L.SOURCES = _src
 
 print(("KAIKKI OK" if not fails else f"{len(fails)} virhettä: " + "; ".join(fails)))
 sys.exit(1 if fails else 0)

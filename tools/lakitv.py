@@ -1797,6 +1797,9 @@ SOURCES = {
     "KRIL": lambda: src_lautakunta("https://www.kuluttajariita.fi/feed/rss-feed?post_type=paatos", "muut", "Kuluttajariitalautakunta", vain_taysistunto=True),
     "EU-KILPAILU": src_eu_kilpailu, # komission kilpailu- ja valtiontukitiedotteet
 }
+OWN_WINDOW = {"EU-DIR", "EU-ASETUS", "EU-YK", "KVL"}   # lähde rajaa aikaikkunan itse (CELLAR 8–21 pv, vero.fi:n sivukartta 14 pv) ja julkaisupäivä on
+                                                      # päivän tarkkuudella; metatiedot voivat tulla päiviä julkaisun jälkeen, joten scanin since-raja ei karsi
+                                                      # näitä – toiston estää nähdyt-luettelo (_nahty) ja tunnettujen lähteiden joukko
 SOURCE_BASE = {"OKV": "finlex", "EOA": "finlex"}   # lähteen perusta vaihtui: linkkimäärän historia aloitetaan alusta (ei väärää HILJAA-hälytystä)
 PER_SOURCE = {"HAO": 10, "HE": 20, "LAUSUNNOT": 20, "TT": 6, "MAO": 6, "EIT": 10, "ICJ": 8, "EUT": 40, "HO": 8, "VakO": 8, "EDPB": 10, "EU-DIR": 20, "NEUVOSTO": 10,
               "KKV-YK": 12, "EU-YK": 10, "EU-ASETUS": 15, "KVL": 8, "YVTLTK": 6, "KRIL": 6, "EU-KILPAILU": 10}
@@ -1867,7 +1870,7 @@ def cmd_scan(p, hours=None, include_seen=False):
     cand = []
     for x in todo:
         dt = as_dt(x.get("julkaistu"))
-        if dt is None or dt >= since:
+        if dt is None or dt >= since or x.get("lahde_nimi") in OWN_WINDOW:
             cand.append(x)
     cand.sort(key=lambda x: x.get("julkaistu") or "", reverse=True)
     # tarkistetut linkit merkitään nähdyiksi vasta julkaisussa (stamp): jos ajo kaatuu, ne tulevat uudelleen ehdolle

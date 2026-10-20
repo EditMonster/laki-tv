@@ -19,12 +19,12 @@ today = now.date()
 monday = today - datetime.timedelta(days=today.weekday())
 def ts(d, h=9, m=0): return f"{d.isoformat()}T{h:02d}:{m:02d}"
 
-def make(extra_items, arch=None, extra_channels=None):
+def make(extra_items, arch=None, extra_channels=None, cutoff=None):
     d = json.load(open(BASE + "test/fixture_data.json"))
     d = copy.deepcopy(d)
-    # tyhjennä tämän viikon jutut, jotta testi on deterministinen
+    # tyhjennä tämän viikon jutut, jotta testi on deterministinen (cutoff: vanhempi raja, esim. kaksi viikkoa)
     for k, l in d["kanavat"].items():
-        l[:] = [x for x in l if x["julkaistu"][:10] < monday.isoformat()]
+        l[:] = [x for x in l if x["julkaistu"][:10] < (cutoff or monday.isoformat())]
     d["kanavat"]["kko"] = extra_items + d["kanavat"]["kko"]
     d["kanavat"]["kko"] = d["kanavat"]["kko"][:9]
     d["arkisto"] = arch or []
@@ -117,7 +117,22 @@ with sync_playwright() as p:
     make([item(15, 5, ts(yday1, 10), ts(yday1, 10))]); pg.goto("file:///tmp/t_page.html#p100"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     pg.evaluate("window.LAKITV.go(100)"); pg.wait_for_timeout(400)
     txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
-    check("100: ilman 24 tunnin juttuja etusivu kertoo sen eikä nosta vanhaa kärjeksi", "TESTIJUTTU 15" not in txt and "EI UUSIA JUTTUJA 24 TUNNIN AIKANA" in txt and "TÄNÄÄN 101" in txt and "VIIKKO 102" in txt, txt[:600])
+    check("100: ilman 24 tunnin juttuja pääuutisissa näkyvät viikon tärkeimmät merkinnällä 'ei uusia 24 h' (fallback)",
+          "VIIKON TÄRKEIMMÄT" in txt and "EI UUSIA 24 H" in txt and "TESTIJUTTU 15" in txt and "TÄNÄÄN 101" in txt and "VIIKKO 102" in txt and "EI UUSIA JUTTUJA 24 TUNNIN" not in txt, txt[:600])
+    dh15 = pg.evaluate("[...document.querySelectorAll('#rows .row.dh')].map(r => r.textContent).join('|')").upper()
+    check("100: fallback-juttu ei ole kaksinkertaisena kärkenä", "TESTIJUTTU 15" not in dh15, dh15[:200])
+    pg.click("#kSv"); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV.go(100)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("100 SV: fallback ruotsiksi", "VECKANS VIKTIGASTE" in txt and "INGA NYA 24 H" in txt and "TESTNYHET 15" in txt, txt[:400])
+    pg.click("#kFi"); pg.wait_for_timeout(300)
+    two_weeks = (monday - datetime.timedelta(days=7)).isoformat()
+    make([], cutoff=two_weeks); pg.goto("file:///tmp/t_page.html#p100"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
+    pg.evaluate("window.LAKITV.go(100)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("100: kun viikollakaan ei ole juttuja, etusivu kertoo sen", "EI UUSIA JUTTUJA 24 TUNNIN AIKANA" in txt and "VIIKON TÄRKEIMMÄT" not in txt and "TÄNÄÄN 101" in txt, txt[:600])
+    pg.evaluate("window.LAKITV.go(104)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("104: päiväsivulla ei viikkofallbackia (näyttää päivän todellisen tilanteen)", "VIIKON TÄRKEIMMÄT" not in txt, txt[:400])
     # 3c) uudet kanavat 520 YRITYSKAUPAT ja 650 VEROTUS: kanavasivu, juttusivu, kanavaluettelo ja tyhjä kanava
     yk = dict(item(21, 4, ts(today, 10), ts(today, 10)), **{"id": "kkv-1410-14-00-10-2026", "tunnus": "KKV/1410/14.00.10/2026", "otsikko": "NIMLAS / TAMMELAN TALOTEKNIIKKA", "otsikko_sv": "NIMLAS / TAMMELAN TALOTEKNIIKKA", "lopputulos": "Hyväksytty sellaisenaan.", "aiheet": ["kilpailu", "yhtio"]})
     ve = dict(item(22, 3, ts(today, 9), ts(today, 9)), **{"id": "KVL:2026/22", "tunnus": "KVL:2026/22", "otsikko": "PORAOHJAIMEN ALV-KOHTELU", "otsikko_sv": "MOMS PÅ BORRGUIDE", "lainvoimainen": True, "aiheet": ["vero"]})

@@ -1,0 +1,123 @@
+<akomaNtoso xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0" xmlns:finlex="http://data.finlex.fi/schema/finlex" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <act contains="originalVersion" name="main">
+        <meta>
+            <identification source="#organization_fi.finlex">
+                <FRBRWork>
+                    <FRBRthis value="/akn/fi/act/statute/2026/915/!main"/>
+                    <FRBRuri value="/akn/fi/act/statute/2026/915"/>
+                    <FRBRalias name="eli" value="http://data.finlex.fi/eli/sd/2026/915/alkup"/>
+                    <FRBRdate date="2026-10-16" name="dateIssued"/>
+                    <FRBRdate date="2026-10-20" name="datePublished"/>
+                    <FRBRauthor as="#role_author" href="#organization_fi.parliament"/>
+                    <FRBRcountry value="fi"/>
+                    <FRBRsubtype value="statute"/>
+                    <FRBRnumber value="915"/>
+                    <FRBRprescriptive value="true"/>
+                    <FRBRauthoritative value="true"/>
+                </FRBRWork>
+                <FRBRExpression>
+                    <FRBRthis value="/akn/fi/act/statute/2026/915/fin@/!main"/>
+                    <FRBRuri value="/akn/fi/act/statute/2026/915/fin@"/>
+                    <FRBRalias name="eli" value="http://data.finlex.fi/eli/sd/2026/915/alkup/fin"/>
+                    <FRBRdate date="2026-10-16" name="dateIssued"/>
+                    <FRBRdate date="2026-10-20" name="datePublished"/>
+                    <FRBRauthor as="#role_author" href="#organization_fi.parliament"/>
+                    <FRBRlanguage language="fin"/>
+                </FRBRExpression>
+                <FRBRManifestation>
+                    <FRBRthis value="/akn/fi/act/statute/2026/915/fin@/!main.xml"/>
+                    <FRBRuri value="/akn/fi/act/statute/2026/915/fin@.akn"/>
+                    <FRBRalias name="eli" value="http://data.finlex.fi/eli/sd/2026/915/alkup/fin/xml"/>
+                    <FRBRdate date="2026-10-20" name="dateProduced"/>
+                    <FRBRdate date="2026-10-20" name="datePublished"/>
+                    <FRBRauthor as="#role_editor" href="#organization_fi.finlex"/>
+                    <FRBRformat value="xml"/>
+                </FRBRManifestation>
+            </identification>
+            <references source="#organization_fi.finlex">
+                <TLCOrganization eId="organization_fi.finlex" href="/akn/ontology/organization/fi.finlex" showAs="Finlex"/>
+                <TLCRole eId="role_author" href="/akn/ontology/role/author" showAs="Tekijä"/>
+                <TLCRole eId="role_editor" href="/akn/ontology/role/editor" showAs="Toimittaja"/>
+                <TLCConcept eId="act" href="/akn/ontology/concept/statute/type-statute.act" showAs="Laki"/>
+                <TLCConcept eId="amending-statute" href="/akn/ontology/concept/statute/category-statute.amending-statute" showAs="Muutossäädös"/>
+            </references>
+            <proprietary source="#organization_fi.finlex">
+                <finlex:typeStatute refersTo="#act"/>
+                <finlex:categoryStatute refersTo="#amending-statute"/>
+                <finlex:documentYear>2026</finlex:documentYear>
+            </proprietary>
+        </meta>
+        <preface>
+            <p>
+                <docNumber>915/2026</docNumber>
+                <docTitle>Laki tutkintavankeuslain 6 luvun 1 §:n muuttamisesta</docTitle>
+            </p>
+        </preface>
+        <preamble>
+            <formula eId="enactingClause" name="enactingClause">
+                <p>Eduskunnan päätöksen mukaisesti</p>
+                <blockContainer>
+                    <block name="substitutions">
+                        <i>muutetaan</i>
+                         tutkintavankeuslain (<affectedDocument href="/akn/fi/act/statute/2005/768">768/2005</affectedDocument>) 6 luvun 1 §:n 4 momentti, sellaisena kuin se on laissa 122/2023, seuraavasti:
+                    </block>
+                </blockContainer>
+            </formula>
+        </preamble>
+        <body>
+            <hcontainer finlex:outline="Säädöksen teksti" name="statuteProvisionsWrapper">
+                <chapter eId="chp_6">
+                    <num>6 luku</num>
+                    <heading>Sosiaali- ja terveydenhuolto</heading>
+                    <section eId="chp_6__sec_1">
+                        <num>1 §</num>
+                        <heading>Tutkintavangin terveyden- ja sairaanhoito</heading>
+                        <hcontainer name="omission"/>
+                        <subsection>
+                            <content>
+                                <p>
+                                    Vankiterveydenhuollon yksikön on julkaistava kuukausittain yleisessä tietoverkossa edellistä kalenterikuukautta koskevat tunnusluvut siitä, miten hoitoon pääsyn enimmäisaikojen noudattaminen toteutui. Terveyden ja hyvinvoinnin laitos tuottaa tunnusluvut Terveyden ja hyvinvoinnin laitoksesta annetun lain 
+                                    <ref href="/akn/fi/act/statute/2008/668">(668/2008)</ref>
+                                     5 ja 5 c §:n nojalla saamiensa tietojen perusteella. Terveyden ja hyvinvoinnin laitoksen on luovutettava julkaisua varten tarpeelliset tiedot Vankiterveydenhuollon yksikölle. Kutakin Vankiterveydenhuollon yksikön sairaalaa ja poliklinikkaa koskevat tunnusluvut on julkaistava erikseen ja ostopalveluina hankittuja erikoissairaanhoidon palveluita koskevat tunnusluvut on julkaistava koko Vankiterveydenhuollon yksikköä koskien. Tunnusluvut on julkaistava myös siten, että ne ovat vankilassa vankien saatavilla. Sosiaali- ja terveysministeriön asetuksella voidaan säätää tarkemmin niistä hoitoon pääsyä koskevista tunnusluvuista, jotka on julkaistava.
+                                </p>
+                            </content>
+                        </subsection>
+                        <hcontainer name="omission"/>
+                    </section>
+                </chapter>
+            </hcontainer>
+            <hcontainer name="entryIntoForceStart"/>
+            <hcontainer eId="entryIntoForce" name="entryIntoForce">
+                <content>
+                    <p>Tämä laki tulee voimaan 1 päivänä tammikuuta 2027.</p>
+                </content>
+            </hcontainer>
+            <hcontainer finlex:outline="Esityöt ja allekirjoitukset" name="conclusions">
+                <hcontainer finlex:outline="Esityöt" name="preliminaryWork">
+                    <content>
+                        <p>
+                            <ref href="/akn/fi/doc/government-proposal/2026/81">HE 81/2026</ref>
+                        </p>
+                        <p>StVM 10/2026</p>
+                        <p>EV 132/2026</p>
+                    </content>
+                </hcontainer>
+                <hcontainer finlex:outline="Allekirjoitukset" name="signatures">
+                    <content>
+                        <p>Helsingissä 16.10.2026</p>
+                        <p>
+                            <signature>
+                                <role refersTo="">Tasavallan Presidentti</role>
+                                <person refersTo="">Alexander Stubb</person>
+                            </signature>
+                            <signature>
+                                <role refersTo="">Sosiaali- ja terveysministeri</role>
+                                <person refersTo="">Wille Rydman</person>
+                            </signature>
+                        </p>
+                    </content>
+                </hcontainer>
+            </hcontainer>
+        </body>
+    </act>
+</akomaNtoso>

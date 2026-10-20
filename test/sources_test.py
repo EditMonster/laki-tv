@@ -144,5 +144,86 @@ with tempfile.TemporaryDirectory() as td:
         os.chdir(cwd)
 L.SOURCES = _src
 
+# 11. Säädöskokoelma: numeroita tutkitaan suurimmasta tunnetusta eteenpäin; laki ja asetus tunnistetaan; teksti avoimesta datasta
+import urllib.error
+_fetch = L.fetch
+def fake_fetch(url, **k):
+    m = re.search(r"/statute/2026/(\d+)/fin@$", url)
+    if m and _os.path.exists(F + f"statute_2026_{m.group(1)}.xml"):
+        return open(F + f"statute_2026_{m.group(1)}.xml", "rb").read()
+    if m:
+        raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+    raise OSError("ei verkkoa testissä: " + url)
+L.fetch = fake_fetch
+_now = L.now
+L.now = lambda: datetime.datetime(2026, 10, 20, 12, 0, tzinfo=L.HKI)
+L.SCAN_CTX["data"] = {"kanavat": {k: [] for k in L.CH_KEYS}, "arkisto": [], "_nahty": [], "voimaantulot": [{"saados": "899/2026", "pvm": "2026-11-01"}], "vt_arkisto": []}
+r = L.src_saadoskokoelma()
+ok([x["tunnus"] for x in r] == ["915/2026", "900/2026"] and r[0]["tyyppi"] == "laki" and r[1]["tyyppi"] == "asetus" and r[1]["julkaistu"] == "2026-10-15"
+   and r[1]["voimaantulo"] == "2026-10-16" and r[1]["muutossaados"] and r[0]["otsikko"].startswith("Laki tutkintavankeuslain") and r[0]["kuvaus"].startswith("Eduskunnan päätöksen")
+   and r[0]["kanava"] == "he" and L.SCAN_CTX.get("sk_viimeisin") == 915, "SÄÄDÖSKOKOELMA: uudet säädökset 899:n jälkeen (laki ja asetus, päivät, voimaantulo)", [(x["tunnus"], x.get("tyyppi"), x.get("julkaistu"), x.get("voimaantulo")) for x in r])
+ok(L.api_url_for("https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/900") == ("sk", 900, 2026), "SÄÄDÖSKOKOELMA: finlex.fi-osoite ohjataan avoimeen dataan (text)")
+t = L._text("https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/2026/900", 400)
+ok(t["otsikko"].startswith("Valtioneuvoston asetus maatalousyrittäjän") and t["voimaantulo"] == "2026-10-16" and "Valtion osuuden ennakko" in t["teksti"], "text: säädöksen teksti avoimesta datasta", t)
+L.SCAN_CTX["data"]["voimaantulot"] = []
+ok(L.src_saadoskokoelma() == [], "SÄÄDÖSKOKOELMA: ilman vertailukohtaa ei arvailla (vt-update antaa numerot)")
+L.fetch = _fetch; L.now = _now
+
+# 12. Tiedotteet (WordPress-RSS): rutiini ja rinnakkaiskieliset pois, tuomioistuimen nimi ja kanava (hao/muut), sivun teksti
+PAGES.update({
+    "https://www.tuomioistuimet.fi/ajankohtaista/tiedotteet/feed/": rd("tuomioistuimet_rss.xml"),
+    "https://www.korkeinoikeus.fi/feed/rss-feed?post_type=ajankohtaiset": rd("kko_rss.xml"),
+    "https://www.syyttajalaitos.fi/feed/rss-feed?post_type=ajankohtaiset": rd("syyttaja_rss.xml"),
+    "https://www.tuomioistuimet.fi/ajankohtaista/tiedotteet/hovioikeuden-tuomio-terrorismirikoksia-koskevassa-asiassa/": rd("tiedote_ho_terrorismi.html"),
+    "https://www.korkeinoikeus.fi/ajankohtaista/tiedote-ja-uutisarkisto/korkein-oikeus-myonsi-valitusluvan-lehtisaarelaisen-taloyhtion-maanvuokrasopimusriidassa/": rd("tiedote_kko_valituslupa.html"),
+})
+_fgt = L.get_text
+def fake_get_text2(url, **k):
+    try:
+        return fake_get_text(url, **k)
+    except OSError:
+        if "tuomioistuimet.fi/ajankohtais" in url or "korkeinoikeus.fi/ajankohtaista/" in url or "syyttajalaitos.fi/" in url:
+            return "<html><head><title>X</title></head><body><main><p>Tiedote. Helsingin käräjäoikeus antoi tuomion.</p></main></body></html>"
+        raise
+L.get_text = fake_get_text2
+L.SCAN_CTX["data"] = {"kanavat": {k: [] for k in L.CH_KEYS}, "arkisto": [], "_nahty": []}
+r = L.SOURCES["TUOMIOISTUIMET"]()
+titles = [x["otsikko"] for x in r]
+ok(all(not L.TIEDOTE_SKIP.search(t) and not L.SV_EN_TITLE.search(t) for t in titles) and not any("Court of Appeal" in t or "Avoimet" in t or "viikkotiedote" in t.lower() for t in titles)
+   and any(x["otsikko"].startswith("Hovioikeuden tuomio terrorismi") and x["kanava"] == "muut" and x["elin"] == "Itä-Suomen hovioikeus" and "terrorismi" in x["kuvaus"].lower() for x in r)
+   and all(x["kanava"] == "hao" for x in r if "hallinto-oikeu" in x["otsikko"].lower()), "TUOMIOISTUIMET: rutiini ja englanti pois, hovioikeuden nimi sivulta, hallinto-oikeudet hao-kanavalle", [(x["kanava"], x.get("elin"), x["otsikko"][:50]) for x in r])
+r = L.SOURCES["KKO-TIED"]()
+ok(r and all(x["kanava"] == "kko" and x["elin"] == "Korkein oikeus" for x in r) and not any(re.search(r"Högsta|utlåtande|puhe", x["otsikko"], re.I) for x in r)
+   and any(x["otsikko"].startswith("Korkein oikeus myönsi valitusluvan lehtisaarelaisen") and "valituslu" in x["kuvaus"].lower() for x in r), "KKO-TIED: valitusluvat mukaan, ruotsi ja puheet pois, teksti sivulta", [x["otsikko"][:60] for x in r])
+r = L.SOURCES["SYYTTAJA"]()
+ok(r and all(x["kanava"] == "muut" and x["elin"] == "Syyttäjälaitos" for x in r) and not any(re.search(r"Misstank|Undersökningsled|Käyntiasiointi", x["otsikko"]) for x in r),
+   "SYYTTAJA: ruotsi ja asiointitiedotteet pois", [x["otsikko"][:60] for x in r])
+L.get_text = fake_get_text
+
+# 13. Komission ehdotukset: vain asetus- ja direktiiviehdotukset (SPARQL-suodatus), suomenkielinen nimike kun saatavilla, tunnus COM(vvvv) n
+def sparql_com(q, timeout=90):
+    if "PROP_REG" in q:
+        return [{"celex": {"value": "52026PC0569"}, "date": {"value": "2026-10-14"}, "rt": {"value": "http://publications.europa.eu/resource/authority/resource-type/PROP_REG"}, "title": {"value": "Proposal for a REGULATION OF THE EUROPEAN PARLIAMENT AND OF THE COUNCIL amending Regulation (EU) 2024/1787"}, "svc": {"value": "ENER"}},
+                {"celex": {"value": "52026PC0515"}, "date": {"value": "2026-10-01"}, "rt": {"value": "http://publications.europa.eu/resource/authority/resource-type/PROP_DIR"}, "title": {"value": "Proposal for a COUNCIL DIRECTIVE amending Directive 2006/112/EC"}}]
+    if "FIN" in q:
+        return [{"celex": {"value": "52026PC0569"}, "title": {"value": "Ehdotus EUROOPAN PARLAMENTIN JA NEUVOSTON ASETUS metaanipäästöjen vähentämisestä"}}]
+    return []
+L._sparql = sparql_com
+r = L.src_eu_ehdotukset()
+ok([x["tunnus"] for x in r] == ["COM(2026) 569", "COM(2026) 515"] and r[0]["laji"] == "asetusehdotus" and r[1]["laji"] == "direktiiviehdotus" and r[0]["otsikko"].startswith("Ehdotus EUROOPAN")
+   and r[0]["otsikko_fi_saatavilla"] and not r[1]["otsikko_fi_saatavilla"] and r[1]["otsikko"].startswith("Proposal for a COUNCIL DIRECTIVE") and r[0]["id_ehdotus"] == "com-2026-569"
+   and r[0]["url"].endswith("CELEX:52026PC0569") and r[0]["kanava"] == "eu", "EU-EHDOTUS: asetus- ja direktiiviehdotukset, nimike fi/en, tunnus ja id", r)
+
+# 14. Eduskunnan vastaus (EV): tunnistus, HE-viite, päätöspäivä, mietintö, päätösteksti ja id he-paatos-N-vvvv
+row = json.load(open(F + "ev_100_2026.json", encoding="utf-8"))
+ok(L._is_ev_doc(row) and not L._is_he_doc(row) and not L._is_pevl_doc(row), "EV: asiakirja tunnistetaan")
+x = L.ev_item(row, re.match(r"EV (\d+)/(\d{4}) vp$", row["Eduskuntatunnus"]))
+ok(x["tunnus"] == "EV 100/2026 vp" and x["he"] == "HE 22/2026 vp" and x["paatospvm"] == "2026-06-09" and x["mietinto"] == "TaVM 20/2026 vp" and x["lopputulos_arvio"] == "hyväksytty"
+   and x["id_ehdotus"] == "he-paatos-22-2026" and x["asiasanat"].startswith("luottolaitokset") and x["otsikko"].startswith("Eduskunnan vastaus: Hallituksen esitys") and x["kanava"] == "he",
+   "EV: kentät (HE, päätöspäivä, mietintö, päätös, id)", x)
+ok(L.api_url_for("https://www.eduskunta.fi/valtiopaivaasiakirjat/EV+100/2026") == ("ev", 100, 2026), "EV: osoite ohjataan rajapintaan (text)")
+ok({"SAADOSKOKOELMA", "TUOMIOISTUIMET", "KKO-TIED", "KHO-TIED", "SYYTTAJA", "EU-EHDOTUS"} <= set(L.SOURCES) and {"SAADOSKOKOELMA", "EU-EHDOTUS"} <= L.OWN_WINDOW
+   and {"KKO-TIED", "SYYTTAJA", "EU-EHDOTUS", "SAADOSKOKOELMA"} <= L.ZERO_OK, "SOURCES/OWN_WINDOW/ZERO_OK: uudet lähteet rekisteröity")
+
 print(("KAIKKI OK" if not fails else f"{len(fails)} virhettä: " + "; ".join(fails)))
 sys.exit(1 if fails else 0)

@@ -117,6 +117,8 @@ const EN_S = {
   "PÄÄUUTISET":"TOP NEWS",
   "päivitetty":"updated",
   "Ei uusia juttuja 24 tunnin aikana.":"No new items in the last 24 hours.",
+  "ei uusia 24 h":"no new in 24 h",
+  "omissa aiheissa":"in your topics",
   "Omissa aiheissa ei uusia 24 h aikana.":"No new items in your topics in 24 h.",
   "Uusimmat jutut: Tänään 101":"Latest items: Today 101",
   "Viikko 102":"Week 102",
@@ -392,7 +394,7 @@ const CHANNELS = [
    note:"OKV ja EOA: ratkaisut ja kannanotot.", list:"OKV JA EOA"},
   {key:"hao", page:400, short:"HAO", name:"HALLINTO-OIKEUDET", sub:"Valitut ratkaisut aiheittain", bg:"g", fg:"k", tf:"k",
    note:"Aiheittain myös sivuilla 851–869.", list:"HAO"},
-  {key:"muut", page:450, short:"MUUT", name:"MUUT TUOMIOISTUIMET JA LAUTAKUNNAT", sub:"TT, MAO, HO, VakO, KRIL, YVTltk", bg:"r", fg:"w", tf:"w",
+  {key:"muut", page:450, short:"MUUT", name:"MUUT TUOMIOISTUIMET JA VIRANOMAISET", sub:"TT, MAO, HO, KO, VakO, KRIL, VKSV", bg:"r", fg:"w", tf:"w",
    note:"Uusimmat ensin. Vanhimmat poistuvat.", list:"MUUT TUOM."},
   {key:"kilpailu", page:500, short:"KILP", name:"KILPAILUOIKEUS", sub:"KKV, markkinaoikeus, KHO, komissio", bg:"m", fg:"k", tf:"k",
    note:"KKV:n esitys ei ole lainvoimainen.", list:"KILPAILU"},
@@ -404,7 +406,7 @@ const CHANNELS = [
    note:"Päätöksistä voi valittaa hallinto-oik.", list:"TIETOSUOJA"},
   {key:"vero", page:650, short:"VERO", name:"VEROTUS", sub:"KVL:n ennakkoratkaisut", bg:"y", fg:"k", tf:"k",
    note:"Ratkaisusta voi valittaa KHO:een.", list:"VEROTUS"},
-  {key:"he", page:700, short:"HE", name:"EDUSKUNTA", sub:"Esitykset ja PeVL-lausunnot", bg:"y", fg:"b", tf:"b",
+  {key:"he", page:700, short:"HE", name:"EDUSKUNTA JA SÄÄDÖKSET", sub:"HE, PeVL, EV ja vahvistetut lait", bg:"y", fg:"b", tf:"b",
    note:"Käsittelyvaiheet: tulostaulu 720", list:"ESITYKSET"},
   {key:"lausunnot", page:740, short:"LAUS", name:"LAUSUNTOKIERROKSET", sub:"Avoimet lausuntopyynnöt", bg:"y", fg:"b", tf:"b",
    note:"Lausunnon voi antaa kuka tahansa.", list:"LAUSUNNOT"}
@@ -447,13 +449,13 @@ const CH_SV = {
   kho:{short:"HFD", name:"HÖGSTA FÖRVALTNINGSDOMSTOLEN", sub:"Prejudikat", note:"Nyaste först. De äldsta tas bort.", list:"HFD"},
   laillisuus:{short:"LÖ", name:"LAGLIGHETSÖVERVAKNING", sub:"Justitiekanslern och JO", note:"JK och JO: avgöranden och ståndpunkter", list:"JK OCH JO"},
   hao:{short:"FD", name:"FÖRVALTNINGSDOMSTOLARNA", sub:"Utvalda avgöranden per ämne", note:"Per ämne även på sidorna 851–869.", list:"FÖRV.DOMST"},
-  muut:{short:"ÖVR", name:"ÖVRIGA DOMSTOLAR OCH NÄMNDER", sub:"AD, MD, hovrätter, FörsD, nämnder", note:"Nyaste först. De äldsta tas bort.", list:"ÖVR. DOMST"},
+  muut:{short:"ÖVR", name:"ÖVRIGA DOMSTOLAR OCH MYNDIGHETER", sub:"AD, MD, HovR, TR, FörsD, KRIL, ÅKL", note:"Nyaste först. De äldsta tas bort.", list:"ÖVR. DOMST"},
   kilpailu:{short:"KONK", name:"KONKURRENSRÄTT", sub:"KKV, MD, HFD och kommissionen", note:"KKV:s förslag har inte laga kraft.", list:"KONKURRENS"},
   yrityskaupat:{short:"FÖRV", name:"FÖRETAGSFÖRVÄRV", sub:"KKV och kommissionen: förvärv", note:"Pågående och avgjorda förvärv.", list:"FÖRVÄRV"},
   fiva:{short:"FI", name:"FINANSINSPEKTIONEN", sub:"Påföljder och tillsynsbeslut", note:"Besluten kan överklagas.", list:"FINANSINSP"},
   tsv:{short:"DATA", name:"DATASKYDD", sub:"Dataombudsmannen och EDPB", note:"Besluten kan överklagas.", list:"DATASKYDD"},
   vero:{short:"SKATT", name:"BESKATTNING", sub:"Centralskattenämndens avgöranden", note:"Avgörandet kan överklagas till HFD.", list:"BESKATTNING"},
-  he:{short:"RP", name:"RIKSDAGEN", sub:"Propositioner och GrUU-utlåtanden", note:"Behandlingsskeden: resultattavla 720", list:"PROPOSITION"},
+  he:{short:"RP", name:"RIKSDAGEN OCH FÖRFATTNINGAR", sub:"RP, GrUU, RSv och stadfästa lagar", note:"Behandlingsskeden: resultattavla 720", list:"PROPOSITION"},
   lausunnot:{short:"REM", name:"REMISSER", sub:"Öppna begäranden om utlåtande", note:"Vem som helst kan ge utlåtande.", list:"REMISSER"}
 };
 const TOPIC_SV = {
@@ -486,13 +488,13 @@ const CH_EN = {
   kho:{short:"KHO", name:"SUPREME ADMINISTRATIVE COURT", sub:"Precedents", note:"Newest first. The oldest drop off.", list:"SUPR. ADMIN"},
   laillisuus:{short:"OVS", name:"OVERSIGHT OF LEGALITY", sub:"Chancellor of Justice, Ombudsman", note:"CoJ and Ombudsman: decisions and views", list:"OVERSIGHT"},
   hao:{short:"HAO", name:"ADMINISTRATIVE COURTS", sub:"Selected rulings by topic", note:"By topic also on pages 851–869.", list:"ADMIN CTS"},
-  muut:{short:"OTHER", name:"OTHER COURTS AND TRIBUNALS", sub:"Labour, Market, Appeal, boards", note:"Newest first. The oldest drop off.", list:"OTHER CTS"},
+  muut:{short:"OTHER", name:"OTHER COURTS AND AUTHORITIES", sub:"Labour, Market, Appeal, District…", note:"Newest first. The oldest drop off.", list:"OTHER CTS"},
   kilpailu:{short:"COMP", name:"COMPETITION LAW", sub:"FCCA, Market Court, Commission", note:"FCCA proposals are not final.", list:"COMPETITION"},
   yrityskaupat:{short:"M&A", name:"MERGERS AND ACQUISITIONS", sub:"FCCA and Commission merger control", note:"Notified, pending and decided deals.", list:"MERGERS"},
   fiva:{short:"FSA", name:"FINANCIAL SUPERVISION", sub:"Sanctions and supervisory decisions", note:"Decisions may be appealed.", list:"FIN-FSA"},
   tsv:{short:"DATA", name:"DATA PROTECTION", sub:"Data Protection Ombudsman and EDPB", note:"Decisions may be appealed.", list:"DATA PROT."},
   vero:{short:"TAX", name:"TAXATION", sub:"Central Tax Board advance rulings", note:"Rulings may be appealed to the KHO.", list:"TAXATION"},
-  he:{short:"BILL", name:"PARLIAMENT", sub:"Government bills and PeVL opinions", note:"Progress: bill tracker 720", list:"BILLS"},
+  he:{short:"BILL", name:"PARLIAMENT AND LEGISLATION", sub:"Bills, PeVL, replies, enacted acts", note:"Progress: bill tracker 720", list:"BILLS"},
   lausunnot:{short:"CONS", name:"CONSULTATIONS", sub:"Open requests for comments", note:"Anyone may submit comments.", list:"CONSULT."}
 };
 const TOPIC_EN = {
@@ -1607,12 +1609,15 @@ function build101() {
 
 /* Pääuutisten ikkuna: juttu on etusivulla enintään FRONT_HOURS tuntia siitä, kun se tuli LAKI-TV:hen (lisatty) tai julkaistiin,
    kumpi on myöhempi. Sen jälkeen juttu löytyy kanavaltaan, sivulta 101 (tänään) ja viikon tärkeimmistä (102). Toimituksen nosto
-   lisää painoa, mutta ei pidennä aikaa. Kalenterin päiväsivu (104) kutsuu tätä withRef-ajalla (päivän loppu). */
-const FRONT_HOURS = 24;
+   lisää painoa, mutta ei pidennä aikaa. Kalenterin päiväsivu (104) kutsuu tätä withRef-ajalla (päivän loppu).
+   Kun 24 tunnin sisällä ei ole yhtään juttua (viikonloput, pyhät), pääuutisissa näytetään viikon tärkeimmät FRONT_FALLBACK_N juttua
+   (maanantaiaamuna edellisen viikon), merkittynä "ei uusia 24 h": ruutu ei ole koskaan tyhjä, mutta 24 tunnin sääntö ei lipsu. */
+const FRONT_HOURS = 24, FRONT_FALLBACK_N = 3;
 function featEpoch(it) { const l = hkiE(it.lisatty), p = pubEpoch(it); return isNaN(l) ? p : isNaN(p) ? l : Math.max(l, p); }
 function featAgeHours(it) { const e = featEpoch(it); if (isNaN(e)) return Infinity; const h = (nowMs() - e) / 3600e3; return h < -1 ? Infinity : Math.max(0, h); }
 /* Etusivun otsikot: 24 tunnin painavin ensin, sitten paino ja tuoreus; voimaantulot pysyvät mukana.
-   o.items: ehdokkaat (oletus kanavien jutut), o.boost: toimituksen nostot, o.vt: voimaantulorivit. Paluuarvon noItems kertoo, ettei juttuja ollut. */
+   o.items: ehdokkaat (oletus kanavien jutut), o.boost: toimituksen nostot, o.vt: voimaantulorivit, o.week === false estää viikkofallbackin
+   (päiväsivut 104). Paluuarvon noItems kertoo, ettei 24 tunnin juttuja ollut, ja fallback, että tilalla ovat viikon tärkeimmät. */
 function frontHeads(o = {}) {
   const boost = new Map(o.boost === false ? [] : (DATA.etusivu || []).filter(h => h.ref).map(h => [h.ref, h]));
   const c = (o.items || allItems()).filter(x => matches(x.it) && featAgeHours(x.it) <= FRONT_HOURS).map(x => {
@@ -1622,6 +1627,14 @@ function frontHeads(o = {}) {
   c.sort((a, b) => a.low - b.low || b.score - a.score || b.t - a.t);
   const lead = c[0], rest = c.slice(1);
   const heads = lead ? [{otsikko:lead.title, ...target(lead.x)}] : [];
+  let fallback = false;
+  if (!lead && o.week !== false) {   /* hiljainen päivä: viikon tärkeimmät (tai edellisen viikon, jos viikko on vasta alkanut) */
+    const ws = weekStart(todayISO());
+    let wk = weekTop(ws, FRONT_FALLBACK_N);
+    if (!wk.length) wk = weekTop(addDays(ws, -7), FRONT_FALLBACK_N);
+    wk.forEach(x => heads.push({otsikko:tx(x.it, "otsikko"), ...target(x)}));
+    fallback = wk.length > 0;
+  }
   const today = todayISO(), end = addDays(today, 14);
   const when = dte => dte === today ? S("TÄNÄÄN", "I DAG") : dte === addDays(today, 1) ? S("HUOMENNA", "I MORGON") : `${wdOf(dte).toUpperCase()} ${fmtDate(dte, true)}`;
   const vt = (o.vt || DATA.voimaantulot || []).filter(v => v.pvm >= today && v.pvm <= end && matches(v)).sort((a, b) => a.pvm.localeCompare(b.pvm));
@@ -1638,6 +1651,7 @@ function frontHeads(o = {}) {
   }
   const out = heads.slice(0, 8);
   out.noItems = !lead;
+  out.fallback = fallback;
   return out;
 }
 function headRows(heads, leadIndex = heads.noItems ? -1 : 0) {
@@ -1663,7 +1677,11 @@ function buildFront() {
   if (upd.day) putR(lab, 38, filterOn() ? `${+upd.day}.${+upd.month}. ${+upd.hour}.${upd.minute}` : `${S("päivitetty", "uppd.")} ${+upd.day}.${+upd.month}. ${S("klo", "kl.")} ${+upd.hour}.${upd.minute}`, "g");
   rows.push(lab);
   const heads = frontHeads();
-  if (heads.noItems) {   /* ei 24 tunnin sisällä tulleita juttuja: kerro se ja ohjaa uusimpiin; voimaantulorivit näytetään silti */
+  if (heads.noItems && heads.fallback) {   /* hiljainen päivä: viikon tärkeimmät pääuutisten tilalla, selvästi merkittynä */
+    const fb = blank(); put(fb, 1, S("VIIKON TÄRKEIMMÄT", "VECKANS VIKTIGASTE"), "m", null, {p:102}); putR(fb, 38, filterOn() ? S("omissa aiheissa", "egna ämnen") : S("ei uusia 24 h", "inga nya 24 h"), "g"); rows.push(fb);
+    headRows(heads, 0).forEach(r => rows.push(r));
+    const go = blank(); put(go, 1, S("Uusimmat jutut: Tänään 101", "Senaste nyheter: I dag 101"), "c", null, {p:101}); putR(go, 38, S("Viikko 102", "Vecka 102"), "y", null, {p:102}); rows.push(go);
+  } else if (heads.noItems) {   /* ei 24 tunnin juttuja eikä viikollakaan: kerro se ja ohjaa uusimpiin; voimaantulorivit näytetään silti */
     rows.push(line(filterOn() ? S("Omissa aiheissa ei uusia 24 h aikana.", "Inga nya i egna ämnen på 24 timmar.") : S("Ei uusia juttuja 24 tunnin aikana.", "Inga nya nyheter på 24 timmar."), "w"));
     const go = blank(); put(go, 1, S("Uusimmat jutut: Tänään 101", "Senaste nyheter: I dag 101"), "c", null, {p:101}); putR(go, 38, S("Viikko 102", "Vecka 102"), "y", null, {p:102}); rows.push(go);
     headRows(heads).forEach(r => rows.push(r));
@@ -1812,9 +1830,9 @@ function buildHelp() {
     ...P("Uudet ratkaisut nousevat kanavan alkuun ja vanhimmat siirtyvät arkistoon, 9 uusinta kanavaa kohden. UUSI-merkki tarkoittaa, että juttu on julkaistu viimeisen 24 tunnin aikana.",
          "Nya avgöranden hamnar först på kanalen och de äldsta flyttas till arkivet, 9 per kanal. Märket NY betyder att nyheten publicerats under de senaste 24 timmarna.",
          "New decisions go to the top of the channel and the oldest move to the archive, 9 per channel. The NEW flag means the item was published in the last 24 hours."),
-    ...P("Etusivun pääuutisissa juttu näkyy enintään 24 tuntia siitä, kun se tuli LAKI-TV:hen; sen jälkeen se löytyy kanavaltaan, sivulta 101 ja viikon tärkeimmistä 102.",
-         "På förstasidan visas en nyhet i högst 24 timmar från att den kom till LAKI-TV; därefter finns den på sin kanal, på sidan 101 och bland veckans viktigaste 102.",
-         "A home-page headline stays for at most 24 hours after the item reached LAKI-TV; after that it is found on its channel, on page 101 and in the week's top items 102."),
+    ...P("Etusivun pääuutisissa juttu näkyy enintään 24 tuntia siitä, kun se tuli LAKI-TV:hen; sen jälkeen se löytyy kanavaltaan, sivulta 101 ja viikon tärkeimmistä 102. Hiljaisina päivinä (viikonloput) tilalla näytetään viikon kolme tärkeintä merkinnällä 'ei uusia 24 h'.",
+         "På förstasidan visas en nyhet i högst 24 timmar från att den kom till LAKI-TV; därefter finns den på sin kanal, på sidan 101 och bland veckans viktigaste 102. Lugna dagar (helger) visas i stället veckans tre viktigaste, märkta 'inga nya 24 h'.",
+         "A home-page headline stays for at most 24 hours after the item reached LAKI-TV; after that it is found on its channel, on page 101 and in the week's top items 102. On quiet days (weekends) the top three of the week are shown instead, marked 'no new in 24 h'."),
     ...P("Tiedot päivittyvät noin klo 7 ja 15. Jos etusivulla vilkkuu PÄIVITYS MYÖHÄSSÄ, päivitys on jäänyt väliin ja tiedot ovat vanhempia kuin tavallisesti.",
          "Uppgifterna uppdateras cirka kl. 7 och 15. Blinkar UPPDATERING FÖRSENAD på förstasidan har en uppdatering uteblivit och uppgifterna är äldre än vanligt.",
          "Data is updated at about 7 and 15. If UPDATE OVERDUE flashes on the home page, an update has been missed and the data is older than usual."),
@@ -2334,7 +2352,7 @@ function buildDay() {
   if (day < min) body.push(...textRows(S("Päivä on yli 30 päivän takaa. Arkisto säilyttää kanavilta poistuneet jutut 35 päivää, joten tiedot voivat olla vajaat.",
     "Dagen ligger över 30 dagar bakåt. Arkivet sparar nyheter i 35 dagar, så uppgifterna kan vara ofullständiga."), "m"), gap());
   const known = knownAt(ref).filter(x => matches(x.it));
-  const heads = withRef(ref, () => frontHeads({items:known, boost:false, vt:vtAll()}));
+  const heads = withRef(ref, () => frontHeads({items:known, boost:false, vt:vtAll(), week:false}));
   body.push(head(isToday ? S("ETUSIVU NYT", "FÖRSTASIDAN NU") : S("ETUSIVU PÄIVÄN PÄÄTTYESSÄ", "FÖRSTASIDAN VID DAGENS SLUT")));
   if (heads.noItems) body.push(line(S("Ei uusia juttuja 24 tunnin aikana.", "Inga nya nyheter på 24 timmar."), "w"));
   headRows(heads).forEach((r, i) => { if (i === 0 && !heads.noItems) body.push(...dh(r)); else body.push(r); });

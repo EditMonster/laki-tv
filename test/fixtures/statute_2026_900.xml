@@ -1,0 +1,105 @@
+<akomaNtoso xmlns="http://docs.oasis-open.org/legaldocml/ns/akn/3.0" xmlns:finlex="http://data.finlex.fi/schema/finlex" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <act contains="originalVersion" name="main">
+        <meta>
+            <identification source="#organization_fi.finlex">
+                <FRBRWork>
+                    <FRBRthis value="/akn/fi/act/statute/2026/900/!main"/>
+                    <FRBRuri value="/akn/fi/act/statute/2026/900"/>
+                    <FRBRalias name="eli" value="http://data.finlex.fi/eli/sd/2026/900/alkup"/>
+                    <FRBRdate date="2026-10-15" name="dateIssued"/>
+                    <FRBRdate date="2026-10-15" name="datePublished"/>
+                    <FRBRauthor as="#role_author" href="#organization_fi.parliament"/>
+                    <FRBRcountry value="fi"/>
+                    <FRBRsubtype value="statute"/>
+                    <FRBRnumber value="900"/>
+                    <FRBRprescriptive value="true"/>
+                    <FRBRauthoritative value="true"/>
+                </FRBRWork>
+                <FRBRExpression>
+                    <FRBRthis value="/akn/fi/act/statute/2026/900/fin@/!main"/>
+                    <FRBRuri value="/akn/fi/act/statute/2026/900/fin@"/>
+                    <FRBRalias name="eli" value="http://data.finlex.fi/eli/sd/2026/900/alkup/fin"/>
+                    <FRBRdate date="2026-10-15" name="dateIssued"/>
+                    <FRBRdate date="2026-10-15" name="datePublished"/>
+                    <FRBRauthor as="#role_author" href="#organization_fi.parliament"/>
+                    <FRBRlanguage language="fin"/>
+                </FRBRExpression>
+                <FRBRManifestation>
+                    <FRBRthis value="/akn/fi/act/statute/2026/900/fin@/!main.xml"/>
+                    <FRBRuri value="/akn/fi/act/statute/2026/900/fin@.akn"/>
+                    <FRBRalias name="eli" value="http://data.finlex.fi/eli/sd/2026/900/alkup/fin/xml"/>
+                    <FRBRdate date="2026-10-16" name="dateProduced"/>
+                    <FRBRdate date="2026-10-15" name="datePublished"/>
+                    <FRBRauthor as="#role_editor" href="#organization_fi.finlex"/>
+                    <FRBRformat value="xml"/>
+                </FRBRManifestation>
+            </identification>
+            <references source="#organization_fi.finlex">
+                <TLCOrganization eId="organization_fi.finlex" href="/akn/ontology/organization/fi.finlex" showAs="Finlex"/>
+                <TLCRole eId="role_author" href="/akn/ontology/role/author" showAs="Tekijä"/>
+                <TLCRole eId="role_editor" href="/akn/ontology/role/editor" showAs="Toimittaja"/>
+                <TLCConcept eId="decree" href="/akn/ontology/concept/statute/type-statute.decree" showAs="Asetus"/>
+                <TLCConcept eId="amending-statute" href="/akn/ontology/concept/statute/category-statute.amending-statute" showAs="Muutossäädös"/>
+            </references>
+            <proprietary source="#organization_fi.finlex">
+                <finlex:typeStatute refersTo="#decree"/>
+                <finlex:categoryStatute refersTo="#amending-statute"/>
+                <finlex:documentYear>2026</finlex:documentYear>
+            </proprietary>
+        </meta>
+        <preface>
+            <p>
+                <docNumber>900/2026</docNumber>
+                <docTitle>Valtioneuvoston asetus maatalousyrittäjän eläkelain täytäntöönpanosta annetun valtioneuvoston asetuksen 5 §:n muuttamisesta</docTitle>
+            </p>
+        </preface>
+        <preamble>
+            <formula eId="enactingClause" name="enactingClause">
+                <p>Valtioneuvoston päätöksen mukaisesti </p>
+                <blockContainer>
+                    <block name="substitutions">
+                        <i>muutetaan </i>
+                        maatalousyrittäjän eläkelain täytäntöönpanosta annetun valtioneuvoston asetuksen (<affectedDocument href="/akn/fi/act/statute/2006/1407">1407/2006</affectedDocument>) 5 §, sellaisena kuin se on osaksi asetuksissa 746/2020 ja 213/2024, seuraavasti:
+                    </block>
+                </blockContainer>
+            </formula>
+        </preamble>
+        <body>
+            <hcontainer finlex:outline="Säädöksen teksti" name="statuteProvisionsWrapper">
+                <section eId="sec_5">
+                    <num>5 §</num>
+                    <heading>Valtion osuuden ennakko</heading>
+                    <hcontainer name="omission"/>
+                    <subsection>
+                        <content>
+                            <p>Sosiaali- ja terveysministeriö voi erityisestä syystä Maatalousyrittäjien eläkelaitoksen esityksestä maksaa ennakkoa, jos eläkelaitoksen valmius maksaa maatalousyrittäjän eläkelaissa tarkoitetut etuudet muuten vaarantuisi.</p>
+                        </content>
+                    </subsection>
+                </section>
+            </hcontainer>
+            <hcontainer name="entryIntoForceStart"/>
+            <hcontainer eId="entryIntoForce" name="entryIntoForce">
+                <content>
+                    <p>Tämä asetus tulee voimaan 16 päivänä lokakuuta 2026.</p>
+                </content>
+            </hcontainer>
+            <hcontainer finlex:outline="Esityöt ja allekirjoitukset" name="conclusions">
+                <hcontainer finlex:outline="Allekirjoitukset" name="signatures">
+                    <content>
+                        <p>Helsingissä 15.10.2026</p>
+                        <p>
+                            <signature>
+                                <role refersTo="">Sosiaaliturvaministeri</role>
+                                <person refersTo="">Karoliina Partanen</person>
+                            </signature>
+                            <signature>
+                                <role refersTo="">Hallitussihteeri</role>
+                                <person refersTo="">Pia Nissinen</person>
+                            </signature>
+                        </p>
+                    </content>
+                </hcontainer>
+            </hcontainer>
+        </body>
+    </act>
+</akomaNtoso>

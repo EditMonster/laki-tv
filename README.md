@@ -12,7 +12,7 @@
 
 | Sivut | Sisältö |
 |---|---|
-| 100 | Etusivu: päivän kärki, pääuutiset, kanavat |
+| 100 | Etusivu: päivän kärki ja pääuutiset (vain 24 tunnin sisällä tulleet jutut), kanavat |
 | 101–105 | Tänään, viikon tärkeimmät, kalenteri 30 pv, päivän tilanne, arkisto |
 | 107 | Aamukooste (sama kooste, jonka Slack/Teams-kanava saa) |
 | 108 | Seurannassa: lukijan seuraamat asiat ja niiden tila |

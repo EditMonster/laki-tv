@@ -116,8 +116,10 @@ const EN_S = {
   "OMAT AIHEET: ":"MY TOPICS: ",
   "PÄÄUUTISET":"TOP NEWS",
   "päivitetty":"updated",
-  "Ei tuoreita juttuja valituissa aiheissa.":"No recent items in the selected topics.",
-  "Ei alle 14 päivää vanhoja juttuja.":"No items under 14 days old.",
+  "Ei uusia juttuja 24 tunnin aikana.":"No new items in the last 24 hours.",
+  "Omissa aiheissa ei uusia 24 h aikana.":"No new items in your topics in 24 h.",
+  "Uusimmat jutut: Tänään 101":"Latest items: Today 101",
+  "Viikko 102":"Week 102",
   "KANAVAT":"CHANNELS",
   "kanavaluettelo 190":"channel list 190",
   "VIIKON TOP 10":"WEEK'S TOP 10",
@@ -288,7 +290,6 @@ const EN_S = {
   "Päivä on yli 30 päivän takaa. Arkisto säilyttää kanavilta poistuneet jutut 35 päivää, joten tiedot voivat olla vajaat.":"This day is more than 30 days back. The archive keeps items removed from the channels for 35 days, so the data may be incomplete.",
   "ETUSIVU NYT":"HOME PAGE NOW",
   "ETUSIVU PÄIVÄN PÄÄTTYESSÄ":"HOME PAGE AT END OF DAY",
-  "Ei silloin tuoreita juttuja.":"No fresh items at that time.",
   "JULKAISTU":"PUBLISHED",
   "juttu":"item",
   "juttua":"items",
@@ -1593,18 +1594,22 @@ function build101() {
   ], S("tänään", "i dag"));
 }
 
-/* Etusivun otsikot: 24 tunnin tärkein ensin, sitten tuoreus ja paino; voimaantulot pysyvät mukana.
-   o.items: ehdokkaat (oletus kanavien jutut), o.boost: toimituksen nostot, o.vt: voimaantulorivit.
-   Kalenterin päiväsivu kutsuu tätä withRef-ajalla (päivän loppu). */
+/* Pääuutisten ikkuna: juttu on etusivulla enintään FRONT_HOURS tuntia siitä, kun se tuli LAKI-TV:hen (lisatty) tai julkaistiin,
+   kumpi on myöhempi. Sen jälkeen juttu löytyy kanavaltaan, sivulta 101 (tänään) ja viikon tärkeimmistä (102). Toimituksen nosto
+   lisää painoa, mutta ei pidennä aikaa. Kalenterin päiväsivu (104) kutsuu tätä withRef-ajalla (päivän loppu). */
+const FRONT_HOURS = 24;
+function featEpoch(it) { const l = hkiE(it.lisatty), p = pubEpoch(it); return isNaN(l) ? p : isNaN(p) ? l : Math.max(l, p); }
+function featAgeHours(it) { const e = featEpoch(it); if (isNaN(e)) return Infinity; const h = (nowMs() - e) / 3600e3; return h < -1 ? Infinity : Math.max(0, h); }
+/* Etusivun otsikot: 24 tunnin painavin ensin, sitten paino ja tuoreus; voimaantulot pysyvät mukana.
+   o.items: ehdokkaat (oletus kanavien jutut), o.boost: toimituksen nostot, o.vt: voimaantulorivit. Paluuarvon noItems kertoo, ettei juttuja ollut. */
 function frontHeads(o = {}) {
   const boost = new Map(o.boost === false ? [] : (DATA.etusivu || []).filter(h => h.ref).map(h => [h.ref, h]));
-  const c = (o.items || allItems()).filter(x => matches(x.it)).map(x => {
-    const b = boost.get(x.it.id), f = freshness(x.it), score = Math.min(5, (x.it.paino || 2) + (b ? 1 : 0));
-    return {x, f, score, fe: f + (score <= 2 ? 1 : 0), t: pubEpoch(x.it), title: (b && tx(b, "otsikko")) || tx(x.it, "otsikko")};
-  }).filter(q => q.f <= 3);
-  c.sort((a, b) => a.fe - b.fe || b.score - a.score || b.t - a.t);
-  const lead = c.filter(q => q.f === 0).sort((a, b) => b.score - a.score || b.t - a.t)[0] || c[0];
-  const rest = c.filter(q => q !== lead);
+  const c = (o.items || allItems()).filter(x => matches(x.it) && featAgeHours(x.it) <= FRONT_HOURS).map(x => {
+    const b = boost.get(x.it.id), score = Math.min(5, (x.it.paino || 2) + (b ? 1 : 0));
+    return {x, score, low: score <= 2 ? 1 : 0, t: featEpoch(x.it), title: (b && tx(b, "otsikko")) || tx(x.it, "otsikko")};
+  });
+  c.sort((a, b) => a.low - b.low || b.score - a.score || b.t - a.t);
+  const lead = c[0], rest = c.slice(1);
   const heads = lead ? [{otsikko:lead.title, ...target(lead.x)}] : [];
   const today = todayISO(), end = addDays(today, 14);
   const when = dte => dte === today ? S("TÄNÄÄN", "I DAG") : dte === addDays(today, 1) ? S("HUOMENNA", "I MORGON") : `${wdOf(dte).toUpperCase()} ${fmtDate(dte, true)}`;
@@ -1620,13 +1625,15 @@ function frontHeads(o = {}) {
     const same = eu.filter(v => v.pvm === eu[0].pvm), d = when(eu[0].pvm);
     heads.push({otsikko: same.length > 1 ? S(`${d} EU: ${same.length} SÄÄDÖSTÄ ALKAA`, `${d} EU: ${same.length} RÄTTSAKTER BÖRJAR`, `${d} EU: ${same.length} ACTS START TO APPLY`) : `${d} EU: ${tx(same[0], "nimi").toUpperCase()}`, p:801});
   }
-  return heads.slice(0, 8);
+  const out = heads.slice(0, 8);
+  out.noItems = !lead;
+  return out;
 }
-function headRows(heads) {
+function headRows(heads, leadIndex = heads.noItems ? -1 : 0) {
   return heads.map((hd, i) => {
     const r = blank();
-    put(r, 1, trunc(hd.otsikko, 35), i === 0 ? "y" : (i % 2 ? "w" : "c"));
-    putR(r, 39, hd.ai ? "ARK" : String(hd.p), i === 0 ? "w" : hd.ai ? "g" : "y");
+    put(r, 1, trunc(hd.otsikko, 35), i === leadIndex ? "y" : (i % 2 ? "w" : "c"));
+    putR(r, 39, hd.ai ? "ARK" : String(hd.p), i === leadIndex ? "w" : hd.ai ? "g" : "y");
     linkTo(r, hd);
     return r;
   });
@@ -1645,8 +1652,11 @@ function buildFront() {
   if (upd.day) putR(lab, 38, filterOn() ? `${+upd.day}.${+upd.month}. ${+upd.hour}.${upd.minute}` : `${S("päivitetty", "uppd.")} ${+upd.day}.${+upd.month}. ${S("klo", "kl.")} ${+upd.hour}.${upd.minute}`, "g");
   rows.push(lab);
   const heads = frontHeads();
-  headRows(heads).forEach((r, i) => { if (i === 0) rows.push(...dh(r)); else rows.push(r); });
-  if (!heads.length) rows.push(line(filterOn() ? S("Ei tuoreita juttuja valituissa aiheissa.", "Inga färska nyheter i de valda ämnena.") : S("Ei alle 14 päivää vanhoja juttuja.", "Inga nyheter från de senaste 14 dagarna."), "w"));
+  if (heads.noItems) {   /* ei 24 tunnin sisällä tulleita juttuja: kerro se ja ohjaa uusimpiin; voimaantulorivit näytetään silti */
+    rows.push(line(filterOn() ? S("Omissa aiheissa ei uusia 24 h aikana.", "Inga nya i egna ämnen på 24 timmar.") : S("Ei uusia juttuja 24 tunnin aikana.", "Inga nya nyheter på 24 timmar."), "w"));
+    const go = blank(); put(go, 1, S("Uusimmat jutut: Tänään 101", "Senaste nyheter: I dag 101"), "c", null, {p:101}); putR(go, 38, S("Viikko 102", "Vecka 102"), "y", null, {p:102}); rows.push(go);
+    headRows(heads).forEach(r => rows.push(r));
+  } else headRows(heads).forEach((r, i) => { if (i === 0) rows.push(...dh(r)); else rows.push(r); });
   while (rows.length < 15) rows.push(blank());
   const band = blank("b"); put(band, 1, S("KANAVAT", "KANALER"), "y", "b"); putR(band, 38, S("kanavaluettelo 190", "kanallista 190"), "c", "b", {p:190});
   rows.push(band);
@@ -1791,6 +1801,9 @@ function buildHelp() {
     ...P("Uudet ratkaisut nousevat kanavan alkuun ja vanhimmat siirtyvät arkistoon, 9 uusinta kanavaa kohden. UUSI-merkki tarkoittaa, että juttu on julkaistu viimeisen 24 tunnin aikana.",
          "Nya avgöranden hamnar först på kanalen och de äldsta flyttas till arkivet, 9 per kanal. Märket NY betyder att nyheten publicerats under de senaste 24 timmarna.",
          "New decisions go to the top of the channel and the oldest move to the archive, 9 per channel. The NEW flag means the item was published in the last 24 hours."),
+    ...P("Etusivun pääuutisissa juttu näkyy enintään 24 tuntia siitä, kun se tuli LAKI-TV:hen; sen jälkeen se löytyy kanavaltaan, sivulta 101 ja viikon tärkeimmistä 102.",
+         "På förstasidan visas en nyhet i högst 24 timmar från att den kom till LAKI-TV; därefter finns den på sin kanal, på sidan 101 och bland veckans viktigaste 102.",
+         "A home-page headline stays for at most 24 hours after the item reached LAKI-TV; after that it is found on its channel, on page 101 and in the week's top items 102."),
     ...P("Tiedot päivittyvät noin klo 7 ja 15. Jos etusivulla vilkkuu PÄIVITYS MYÖHÄSSÄ, päivitys on jäänyt väliin ja tiedot ovat vanhempia kuin tavallisesti.",
          "Uppgifterna uppdateras cirka kl. 7 och 15. Blinkar UPPDATERING FÖRSENAD på förstasidan har en uppdatering uteblivit och uppgifterna är äldre än vanligt.",
          "Data is updated at about 7 and 15. If UPDATE OVERDUE flashes on the home page, an update has been missed and the data is older than usual."),
@@ -2312,8 +2325,8 @@ function buildDay() {
   const known = knownAt(ref).filter(x => matches(x.it));
   const heads = withRef(ref, () => frontHeads({items:known, boost:false, vt:vtAll()}));
   body.push(head(isToday ? S("ETUSIVU NYT", "FÖRSTASIDAN NU") : S("ETUSIVU PÄIVÄN PÄÄTTYESSÄ", "FÖRSTASIDAN VID DAGENS SLUT")));
-  if (heads.length) headRows(heads).forEach((r, i) => { if (i === 0) body.push(...dh(r)); else body.push(r); });
-  else body.push(line(S("Ei silloin tuoreita juttuja.", "Inga färska nyheter då."), "w"));
+  if (heads.noItems) body.push(line(S("Ei uusia juttuja 24 tunnin aikana.", "Inga nya nyheter på 24 timmar."), "w"));
+  headRows(heads).forEach((r, i) => { if (i === 0 && !heads.noItems) body.push(...dh(r)); else body.push(r); });
   const own = known.filter(x => dayOf(x.it) === day).sort(byNews);
   body.push(gap(), head(`${S("JULKAISTU", "PUBLICERAT")} ${fmtDate(day, true)} · ${own.length} ${own.length === 1 ? S("juttu", "nyhet") : S("juttua", "nyheter")}`));
   if (own.length) body.push(...withRef(ref, () => newsRows(own, true)));

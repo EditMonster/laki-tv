@@ -99,11 +99,28 @@ with sync_playwright() as p:
     check("haku löytää arkistojutun", "ARK" in pg.inner_text("#qResults"), pg.inner_text("#qResults")[:200])
     pg.keyboard.press("Enter"); pg.wait_for_timeout(500)
     check("hakutulos avaa 105", pg.evaluate("window.LAKITV.state.current") == 105)
+    # 3b) etusivun 24 tunnin ikkuna: juttu on pääuutisissa enintään 24 h siitä, kun se tuli LAKI-TV:hen (lisatty) tai julkaistiin
+    yday1, yday2 = today - datetime.timedelta(days=1), today - datetime.timedelta(days=2)
+    front = [item(11, 5, ts(yday1, 10), ts(yday1, 10)),          # julkaistu ja lisätty eilen klo 10 (35 h sitten): ei etusivulla
+             item(12, 5, ts(yday2, 10), ts(today, 15)),        # julkaistu toissapäivänä, tuli LAKI-TV:hen tänään klo 15: etusivulla
+             item(13, 3, ts(today, 19)),                       # julkaistu tänään klo 19 ilman lisatty-kenttää: etusivulla
+             item(14, 4, ts(today, 8), ts(today, 8))]          # 13 h sitten: etusivulla, painon mukaan ennen T:13
+    make(front); pg.goto("file:///tmp/t_page.html#p100"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
+    pg.evaluate("window.LAKITV.go(100)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("100: yli 24 h sitten tullut juttu ei ole pääuutisissa", "TESTIJUTTU 11" not in txt, txt[:400])
+    check("100: aiemmin julkaistu mutta alle 24 h sitten lisätty juttu on pääuutisissa", "TESTIJUTTU 12" in txt, txt[:400])
+    check("100: alle 24 h sitten julkaistu juttu ilman lisatty-kenttää on pääuutisissa", "TESTIJUTTU 13" in txt, txt[:400])
+    check("100: kärki on 24 tunnin painavin", txt.index("TESTIJUTTU 12") < txt.index("TESTIJUTTU 14") < txt.index("TESTIJUTTU 13"), txt[:400])
+    make([item(15, 5, ts(yday1, 10), ts(yday1, 10))]); pg.goto("file:///tmp/t_page.html#p100"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
+    pg.evaluate("window.LAKITV.go(100)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("100: ilman 24 tunnin juttuja etusivu kertoo sen eikä nosta vanhaa kärjeksi", "TESTIJUTTU 15" not in txt and "EI UUSIA JUTTUJA 24 TUNNIN AIKANA" in txt and "TÄNÄÄN 101" in txt and "VIIKKO 102" in txt, txt[:600])
     # 4) ruotsi
-    make(base); pg.goto("file:///tmp/t_page.html#p100"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
+    make(base + [item(6, 5, ts(today, 9), ts(today, 9))]); pg.goto("file:///tmp/t_page.html#p100"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     pg.click("#kSv"); pg.wait_for_timeout(400)
     txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')")
-    check("SV: etusivu ruotsiksi", "HUVUDNYHETER" in txt.upper() and "TESTNYHET 1" in txt.upper(), txt[:300])
+    check("SV: etusivu ruotsiksi", "HUVUDNYHETER" in txt.upper() and "TESTNYHET 6" in txt.upper(), txt[:300])
     check("SV: kaukosäädin ruotsiksi", pg.inner_text("#kSearch").strip().upper() == "SÖK" and pg.get_attribute("html", "lang") == "sv")
     pg.reload(); pg.wait_for_timeout(500)
     check("SV: valinta muistetaan", pg.evaluate("document.documentElement.lang") == "sv")

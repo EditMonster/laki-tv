@@ -19,7 +19,7 @@ today = now.date()
 monday = today - datetime.timedelta(days=today.weekday())
 def ts(d, h=9, m=0): return f"{d.isoformat()}T{h:02d}:{m:02d}"
 
-def make(extra_items, arch=None):
+def make(extra_items, arch=None, extra_channels=None):
     d = json.load(open(BASE + "test/fixture_data.json"))
     d = copy.deepcopy(d)
     # tyhjennä tämän viikon jutut, jotta testi on deterministinen
@@ -28,6 +28,8 @@ def make(extra_items, arch=None):
     d["kanavat"]["kko"] = extra_items + d["kanavat"]["kko"]
     d["kanavat"]["kko"] = d["kanavat"]["kko"][:9]
     d["arkisto"] = arch or []
+    for k, v in (extra_channels or {}).items():   # uudet kanavat (yrityskaupat, vero): testidata on niitä vanhempaa; lisätään viikkosuodatuksen jälkeen
+        d["kanavat"][k] = v
     json.dump(d, open("/tmp/t_data.json", "w"), ensure_ascii=False)
     r = subprocess.run(["python3", BASE + "tools/lakitv.py", "inject", BASE + "test/fixture.html", "/tmp/t_data.json", "/tmp/t_page.html", "--force"], capture_output=True, text=True)
     assert "OK" in r.stdout, r.stdout + r.stderr
@@ -116,6 +118,37 @@ with sync_playwright() as p:
     pg.evaluate("window.LAKITV.go(100)"); pg.wait_for_timeout(400)
     txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
     check("100: ilman 24 tunnin juttuja etusivu kertoo sen eikä nosta vanhaa kärjeksi", "TESTIJUTTU 15" not in txt and "EI UUSIA JUTTUJA 24 TUNNIN AIKANA" in txt and "TÄNÄÄN 101" in txt and "VIIKKO 102" in txt, txt[:600])
+    # 3c) uudet kanavat 520 YRITYSKAUPAT ja 650 VEROTUS: kanavasivu, juttusivu, kanavaluettelo ja tyhjä kanava
+    yk = dict(item(21, 4, ts(today, 10), ts(today, 10)), **{"id": "kkv-1410-14-00-10-2026", "tunnus": "KKV/1410/14.00.10/2026", "otsikko": "NIMLAS / TAMMELAN TALOTEKNIIKKA", "otsikko_sv": "NIMLAS / TAMMELAN TALOTEKNIIKKA", "lopputulos": "Hyväksytty sellaisenaan.", "aiheet": ["kilpailu", "yhtio"]})
+    ve = dict(item(22, 3, ts(today, 9), ts(today, 9)), **{"id": "KVL:2026/22", "tunnus": "KVL:2026/22", "otsikko": "PORAOHJAIMEN ALV-KOHTELU", "otsikko_sv": "MOMS PÅ BORRGUIDE", "lainvoimainen": True, "aiheet": ["vero"]})
+    pv = dict(item(23, 4, ts(today, 8), ts(today, 8)), **{"id": "pevl-30-2026", "tunnus": "PeVL 30/2026 vp", "otsikko": "PEVL: HALLINTOVALIOKUNNALLE", "otsikko_sv": "GRUU TILL FÖRVALTNINGSUTSKOTTET", "vaihe": "HE 52/2026 vp, HaV käsittelee", "vaihe_sv": "RP 52/2026 rd, FvU behandlar", "aiheet": ["hallinto"]})
+    make([], extra_channels={"yrityskaupat": [yk], "vero": [ve], "he": [pv]}); pg.goto("file:///tmp/t_page.html#p520"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
+    pg.evaluate("window.LAKITV.go(520)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("520: yrityskaupat-kanavasivu", "YRITYSKAUPAT" in txt and "NIMLAS" in txt and "521" in txt, txt[:400])
+    pg.evaluate("window.LAKITV.go(521)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("521: yrityskauppajuttu (tunnus ja lopputulos)", "KKV/1410/14.00.10/2026" in txt and "HYVÄKSYTTY SELLAISENAAN" in txt, txt[:500])
+    pg.evaluate("window.LAKITV.go(650)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("650: verotus-kanavasivu (KVL)", "VEROTUS" in txt and "PORAOHJAIMEN" in txt and "651" in txt, txt[:400])
+    pg.evaluate("window.LAKITV.go(190)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("190: kanavaluettelossa 520 ja 650", "520" in txt and "YRITYSKAUP" in txt and "650" in txt and "VEROTUS" in txt, txt[:600])
+    pg.click("#kSv"); pg.wait_for_timeout(400); pg.evaluate("window.LAKITV.go(520)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("520 SV: FÖRETAGSFÖRVÄRV", "FÖRETAGSFÖRVÄRV" in txt, txt[:300])
+    pg.evaluate("window.LAKITV.go(651)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("651 SV: KVL-tunnus näytetään CSN-muodossa", "CSN:2026/22" in txt and "KVL:2026/22" not in txt, txt[:300])
+    pg.evaluate("window.LAKITV.go(701)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("701 SV: PeVL-tunnus näytetään GrUU-muodossa", "GRUU 30/2026 RD" in txt and "PEVL 30/2026" not in txt and "RP 52/2026" in txt, txt[:400])
+    pg.click("#kFi"); pg.wait_for_timeout(300)
+    make([]); pg.goto("file:///tmp/t_page.html#p650"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
+    pg.evaluate("window.LAKITV.go(650)"); pg.wait_for_timeout(400)
+    txt = pg.evaluate("[...document.querySelectorAll('#rows .row')].map(r => r.textContent).join('\\n')").upper()
+    check("650: kanava puuttuu datasta -> sivu näkyy tyhjänä, ei virhettä", "VEROTUS" in txt and "EI NÄY" not in txt and not errs, (txt[:300], errs[:2]))
     # 4) ruotsi
     make(base + [item(6, 5, ts(today, 9), ts(today, 9))]); pg.goto("file:///tmp/t_page.html#p100"); pg.reload(); pg.wait_for_timeout(500); pg.evaluate("window.LAKITV && window.LAKITV.setKbd && window.LAKITV.setKbd(true, false)"); pg.wait_for_timeout(300)
     pg.click("#kSv"); pg.wait_for_timeout(400)

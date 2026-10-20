@@ -37,7 +37,7 @@ from zoneinfo import ZoneInfo
 HKI = ZoneInfo("Europe/Helsinki")
 UA = "Mozilla/5.0 (compatible; LAKI-TV/1.0; avoimen lahdekoodin juridinen teksti-TV)"
 BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
-CH_KEYS = ["kko", "eu", "eit", "icj", "kho", "laillisuus", "hao", "muut", "kilpailu", "fiva", "tsv", "he", "lausunnot"]
+CH_KEYS = ["kko", "eu", "eit", "icj", "kho", "laillisuus", "hao", "muut", "kilpailu", "yrityskaupat", "fiva", "tsv", "vero", "he", "lausunnot"]
 AIHEET = {"sote", "digi", "eu", "tyo", "vero", "tietosuoja", "kilpailu", "rikos", "maahanmuutto", "ymparisto", "asuminen",
           "hallinto", "finanssi", "kuluttaja", "yhtio", "perhe", "ihmisoikeudet", "turvallisuus", "koulutus"}
 TEKSTITYYPIT = {"virallinen tiivistelmä", "tiivistelmä", "asiasanat", "asiasanoista koottu", "nimike", "tiedotteen mukaan"}
@@ -593,9 +593,11 @@ def validate(d):
         E.append(f"paivitetty {pv!r}: muoto YYYY-MM-DDTHH:MM:SS+03:00 (aikavyöhyke pakollinen; stamp asettaa sen)")
     lahteet = {}
     kan = d.get("kanavat")
-    if not isinstance(kan, dict) or set(kan) != set(CH_KEYS):
+    if not isinstance(kan, dict) or set(kan) - set(CH_KEYS):
         E.append(f"kanavat-avaimet väärin: {sorted(kan or {})}")
-        kan = kan or {}
+        kan = kan if isinstance(kan, dict) else {}
+    elif set(CH_KEYS) - set(kan):
+        W.append(f"kanavat puuttuvat (prune lisää tyhjinä): {sorted(set(CH_KEYS) - set(kan))}")
     ids, limit, tunnukset = set(), now() + datetime.timedelta(minutes=15), {}
     for k, lst in kan.items():
         if len(lst) > MAX_ITEMS:
@@ -1189,6 +1191,30 @@ def _is_he_doc(r):
     return (r.get("Eduskuntatunnus") or "").startswith("HE ") and "AsiakirjatyyppiKoodi>HE<" in x and "KasittelytiedotValtiopaivaasia" not in x
 
 
+def _is_pevl_doc(r):
+    """Perustuslakivaliokunnan lausunto (PeVL): juridisesti painavin kotimainen valiokunta-asiakirja."""
+    x = r.get("XmlData") or ""
+    return (r.get("Eduskuntatunnus") or "").startswith("PeVL ") and "AsiakirjatyyppiKoodi>PeVL<" in x and "KasittelytiedotValtiopaivaasia" not in x
+
+
+def _xml_text(x, tag):
+    m = re.search(r"<[\w:]*%s\b[^>]*>(.*?)</[\w:]*%s>" % (tag, tag), x, re.S)
+    return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", m.group(1))).split()) if m else ""
+
+
+def pevl_item(r, pm):
+    """PeVL-ehdokas: lausunnon kohde (HE), vastaanottava valiokunta ja valiokunnan päätösesitys (säätämisjärjestys, huomautukset)."""
+    x = r["XmlData"]
+    nimi = _xml_text(x, "NimekeTeksti")
+    he = re.search(r"\b(HE \d+/\d{4} vp)\b", _xml_text(x, "VireilletuloAsia") + " " + " ".join(re.findall(r"<sis1:AsiakirjaViiteTunnus[^>]*>(.*?)</", x)[:1]))
+    paatos = re.sub(r"^VALIOKUNNAN PÄÄTÖSESITYS\s*", "", _xml_text(x, "PaatosOsa"))
+    vast = _xml_text(x, "OtsikkoTeksti")
+    return {"kanava": "he", "url": f"https://www.eduskunta.fi/valtiopaivaasiakirjat/PeVL+{pm.group(1)}/{pm.group(2)}", "tunnus": r.get("Eduskuntatunnus"),
+            "otsikko": f"PeVL: {nimi}" if nimi else r.get("Eduskuntatunnus"), "julkaistu": to_hki(r.get("Created") or ""), "valmis": True,
+            "he": he.group(1) if he else None, "vastaanottaja": vast if vast.endswith("lle") else None, "paatosesitys": paatos[:700],
+            "kuvaus": (f"Lausunto esityksestä {he.group(1)}. " if he else "") + paatos[:600], "laji": "perustuslakivaliokunnan lausunto"}
+
+
 def src_eduskunta_he():
     """Uudet hallituksen esitykset eduskunnan avoimesta datasta (VaskiData) edellisen ajon kohdasta eteenpäin."""
     d = SCAN_CTX.get("data") or {}
@@ -1204,13 +1230,17 @@ def src_eduskunta_he():
         for r in rows:
             last = max(last, int(r["Id"]))
             t = r.get("Eduskuntatunnus") or ""
-            if _is_he_doc(r) and (t not in best or len(r["XmlData"]) > len(best[t]["XmlData"])):
+            if (_is_he_doc(r) or _is_pevl_doc(r)) and (t not in best or len(r["XmlData"]) > len(best[t]["XmlData"])):
                 best[t] = r
         if not data.get("hasMore"):
             break
     SCAN_CTX["vaski_id"] = max(start, last - 400)   # päällekkäisyys (n. 5 pv) varmistaa, ettei esitys jää väliin
     out = []
     for t, r in best.items():
+        pm = re.match(r"PeVL (\d+)/(\d{4}) vp$", t)
+        if pm and t not in have:
+            out.append(pevl_item(r, pm))
+            continue
         m = re.match(r"HE (\d+)/(\d{4}) vp$", t)
         if not m or t in have:
             continue
@@ -1236,6 +1266,28 @@ def he_text(n, year, url, maxc):
     t = "\n".join(lines)
     return {"url": url, "otsikko": nimi, "julkaistu": to_hki(r.get("Created") or ""), "tunnus": f"HE {n}/{year} vp",
             "paaasiallinen_sisalto": " ".join(summary), "teksti": t[:maxc] + (f"\n[… katkaistu, yhteensä {len(t)} merkkiä]" if len(t) > maxc else "")}
+
+
+def pevl_text(n, year, url, maxc):
+    """Perustuslakivaliokunnan lausunnon teksti eduskunnan avoimesta datasta: kohde-HE, lausunnon perustelut ja päätösesitys."""
+    q = VASKI_ROWS + "?" + urllib.parse.urlencode({"columnName": "Eduskuntatunnus", "columnValue": f"PeVL {n}/{year} vp", "perPage": 20})
+    data = json.loads(get_text(q, timeout=90))
+    rows = [r for r in (dict(zip(data["columnNames"], r)) for r in data.get("rowData") or []) if _is_pevl_doc(r)]
+    if not rows:
+        raise ValueError(f"PeVL {n}/{year} vp ei löydy eduskunnan avoimesta datasta")
+    r = max(rows, key=lambda r: len(r["XmlData"]))
+    x = r["XmlData"]
+    item = pevl_item(r, re.match(r"PeVL (\d+)/(\d{4}) vp$", r.get("Eduskuntatunnus") or f"PeVL {n}/{year} vp"))
+    found = []
+    for tag in ("OtsikkoTeksti", "LihavaKursiiviOtsikkoTeksti", "KappaleKooste", "SisennettyKappaleKooste"):
+        for m in re.finditer(r"<[\w:]*%s\b[^>]*>(.*?)</[\w:]*%s>" % (tag, tag), x, re.S):
+            if clean(m.group(1)):
+                found.append((m.start(), clean(m.group(1))))
+    lines = [t for _, t in sorted(found)]
+    t = "\n".join(lines)
+    return {"url": url, "otsikko": item["otsikko"], "julkaistu": item["julkaistu"], "tunnus": item["tunnus"], "he": item.get("he"),
+            "vastaanottaja": item.get("vastaanottaja"), "paatosesitys": item.get("paatosesitys"),
+            "teksti": t[:maxc] + (f"\n[… katkaistu, yhteensä {len(t)} merkkiä]" if len(t) > maxc else "")}
 
 
 HANKE_API = "https://api.hankeikkuna.fi/api/v2"
@@ -1325,6 +1377,10 @@ def api_url_for(url):
         re.search(r"eduskunta\.fi/.*?HE(?:%20|\+| )(\d+)(?:%2F|/)(\d{4})", url or "")
     if m:
         return ("he", int(m.group(1)), int(m.group(2)))
+    m = re.match(r"https://www\.eduskunta\.fi/valtiopaivaasiakirjat/PeVL\+(\d+)/(\d{4})$", url or "") or \
+        re.search(r"eduskunta\.fi/.*?PeVL(?:%20|\+| )(\d+)(?:%2F|/)(\d{4})", url or "")
+    if m:
+        return ("pevl", int(m.group(1)), int(m.group(2)))
     m = re.match(r"https://valtioneuvosto\.fi/hanke\?tunnus=([^&#]+)", url or "")
     if m:
         return ("hanke", urllib.parse.unquote(m.group(1)))
@@ -1436,7 +1492,277 @@ def src_neuvosto():
     return out
 
 
-ZERO_OK = {"EU-DIR", "NEUVOSTO"}   # lähteet, joilla tyhjä tulos on tavallinen: ei LÄHDE HILJAA -hälytystä
+
+# ---------------------------------------------------------------- uudet lähteet 10/2026: yrityskaupat, PeVL, EU-asetukset, KVL, lautakunnat, EU-kilpailu
+def _plain(h):
+    """HTML -> yksi tekstirivi (skriptit ja tyylit pois)."""
+    h = re.sub(r"(?is)<(script|style|noscript|svg)\b[^>]*>.*?</\1>", " ", h)
+    return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", h)).split())
+
+
+def _after(txt, label, n=200, stop=None):
+    """Teksti otsakkeen jälkeen seuraavaan otsakkeeseen (stop) tai n merkkiin asti."""
+    i = txt.find(label)
+    if i < 0:
+        return ""
+    seg = txt[i + len(label):i + len(label) + n]
+    if stop:
+        j = min([seg.find(s) for s in stop if seg.find(s) > 0] or [len(seg)])
+        seg = seg[:j]
+    return seg.strip(" :")
+
+
+def _kkv_tunnus(slug):
+    """kkv-1410-14-00-10-2026 -> KKV/1410/14.00.10/2026"""
+    m = re.match(r"^kkv-(\d+)-(\d+)-(\d+)-(\d+)-(\d{4})$", slug)
+    return f"KVV/{m.group(1)}/{m.group(2)}.{m.group(3)}.{m.group(4)}/{m.group(5)}".replace("KVV", "KKV") if m else slug
+
+
+def src_kkv_yrityskaupat():
+    """KKV:n yrityskauppavalvonta: ratkaistut yrityskaupat (hyväksyminen sellaisenaan tai ehdollisena, kielto, raukeaminen)
+    päätöslistalta sekä vireillä olevat yrityskaupat (kuuleminen)."""
+    out = []
+    h = get_text("https://www.kkv.fi/paatokset/kilpailuasiat/yrityskauppavalvonta/")
+    for m in re.finditer(r'<h2[^>]*><a href="(https://www\.kkv\.fi/paatokset/kilpailuasiat/yrityskauppavalvonta/([^/"]+)/)"[^>]*>(.*?)</a></h2>(.*?)(?=<h2|$)', h, re.S):
+        url, slug, title, meta = m.group(1), m.group(2), _plain(m.group(3)), m.group(4)
+        dt = re.search(r'datetime="?(\d{4}-\d{2}-\d{2})', meta)
+        laji = re.search(r'<span class="?entry__meta-info"?>\s*([^<]{4,80}?)\s*</span>', meta)
+        out.append({"kanava": "yrityskaupat", "url": url, "otsikko": title, "julkaistu": dt.group(1) if dt else None,
+                    "tunnus": _kkv_tunnus(slug), "laji": (laji.group(1).strip() if laji else "päätös"), "vaihe": "päätös"})
+    h2 = get_text("https://www.kkv.fi/paatokset/vireilla-olevat-yrityskaupat/")
+    for m in re.finditer(r'<a href="(https://www\.kkv\.fi/paatokset/vireilla-olevat-yrityskaupat/([^/"]+)/)"[^>]*>(.*?)</a>', h2, re.S):
+        url, slug, title = m.group(1), m.group(2), _plain(m.group(3))
+        if not title or title.lower().startswith("lue lisää"):
+            continue
+        kuul = re.search(r"kuuleminen (\d{1,2}\.\d{1,2}\.\d{4}) asti", title)
+        out.append({"kanava": "yrityskaupat", "url": url, "otsikko": re.sub(r"\s*\(kuuleminen[^)]*\)\s*$", "", title),
+                    "tunnus": _kkv_tunnus(slug), "laji": "vireillä" + (f", kuuleminen {kuul.group(1)} asti" if kuul else ""), "vaihe": "vireillä",
+                    "kuuleminen": fi_date(kuul.group(1)) if kuul else None, "valmis": True})
+    return dedupe(out)
+
+
+EU_M_SPARQL = """PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+SELECT ?celex ?pub ?title WHERE {
+ ?w cdm:resource_legal_id_celex ?celex ; cdm:official-journal-act_date_publication ?pub .
+ FILTER(?pub >= "%s"^^xsd:date)
+ FILTER(REGEX(STR(?celex), "^5[0-9]{4}M[0-9]+"))
+ ?e cdm:expression_belongs_to_work ?w ; cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/FIN> ; cdm:expression_title ?title .
+} ORDER BY DESC(?pub) LIMIT 120"""
+
+
+def src_eu_yrityskaupat(days=8):
+    """Komission yrityskauppavalvonta EU:n virallisen lehden C-sarjasta (CELLAR): ennakkoilmoitukset, joissa on suomalainen osapuoli
+    (ilmoituksen teksti luetaan ja osapuolen maa tarkistetaan), sekä päätökset (vastustamatta jättäminen, ehdollinen hyväksyminen)
+    asioissa, jotka ovat jo LAKI-TV:ssä. Tyhjä tulos on tavallinen."""
+    d = SCAN_CTX.get("data") or {}
+    known_cases = {re.sub(r"^eu-m-", "M.", it.get("id") or "") for _, it in all_items(d) if str(it.get("id") or "").startswith("eu-m-")}
+    known_cases |= {re.sub(r"^eu-m-", "M.", a.get("id") or "") for a in d.get("arkisto", []) if str(a.get("id") or "").startswith("eu-m-")}
+    since = (now().date() - datetime.timedelta(days=days)).isoformat()
+    res = _sparql(EU_M_SPARQL % since)
+    out, seen, reads = [], set(), 0
+    for b in res:
+        celex, pub, title = b["celex"]["value"], b["pub"]["value"][:10], " ".join(b["title"]["value"].split())
+        if celex in seen:
+            continue
+        seen.add(celex)
+        cm = re.search(r"\(Asia (M\.\d+)\s*[–-]\s*(.*?)\)", title)
+        case, parties = (cm.group(1), cm.group(2).strip()) if cm else (None, title)
+        kind = ("ennakkoilmoitus" if title.startswith("Ennakkoilmoitus") else "hyväksytty" if "vastustamatta" in title else "päätös")
+        url = eurlex_url(celex)
+        if kind == "ennakkoilmoitus":
+            if "(" in celex or reads >= 12:
+                continue
+            reads += 1
+            try:
+                t = cellar_text(celex, url, 3000)["teksti"]
+            except Exception:
+                continue
+            osap = re.findall(r"—\s*([^—\n]+?\((?:[^()\n]*?),\s*([^()\n]+)\))", t)   # "— Kesko Oyj (Kesko, Suomi)"
+            maat = [m[1].strip() for m in osap]
+            if not any(re.search(r"\bSuomi\b|\bFinland\b", x) for x in maat):
+                continue
+            lines = [l.strip() for l in t.split("\n") if l.strip()]
+            i = next((k for k, l in enumerate(lines) if l.startswith("2.")), None)
+            kuv = " ".join(lines[i:i + 8]) if i is not None else t[:600]
+            out.append({"kanava": "yrityskaupat", "url": url, "otsikko": f"{case} {parties}" if case else title, "julkaistu": pub, "valmis": True,
+                        "tunnus": case, "osapuolet": parties, "maat": maat, "laji": "ennakkoilmoitus komissiolle" + (" (yksinkertaistettu menettely)" if "ksinkertaistettu" in title else ""),
+                        "kuvaus": kuv[:700], "celex": celex, "id_ehdotus": f"eu-m-{case[2:]}" if case else None})
+        elif case and case in known_cases:
+            out.append({"kanava": "yrityskaupat", "url": url, "otsikko": f"{case} {parties}", "julkaistu": pub, "valmis": True, "tunnus": case,
+                        "osapuolet": parties, "laji": "komissio hyväksyi (vastustamatta jättäminen)" if kind == "hyväksytty" else "komission päätös",
+                        "kuvaus": title[:300], "celex": celex, "id_ehdotus": f"eu-m-{case[2:]}", "paivitys": True})
+    return out
+
+
+REG_SPARQL = DIR_SPARQL.replace('"^3[0-9]{4}L[0-9]{4}$"', '"^3[0-9]{4}R[0-9]{4}$"').replace("OPTIONAL { ?w cdm:directive_date_transposition ?tr . }", "OPTIONAL { ?w cdm:resource_legal_date_application ?tr . }").replace("LIMIT 60", "LIMIT 150")
+
+
+def _titles_lang(celexes, lang):
+    """Virallinen nimike toisella kielellä (SWE/ENG) CELEX-tunnuksille."""
+    if not celexes:
+        return {}
+    vals = " ".join(sorted({f'"{c}"^^xsd:string' for c in celexes}))
+    q = ("PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> "
+         "SELECT DISTINCT ?celex ?title WHERE { VALUES ?celex { %s } ?w cdm:resource_legal_id_celex ?celex . "
+         "?e cdm:expression_belongs_to_work ?w ; cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/%s> ; "
+         "cdm:expression_title ?title . }") % (vals, lang)
+    try:
+        return {b["celex"]["value"]: " ".join(b["title"]["value"].split()) for b in _sparql(q)}
+    except Exception:
+        return {}
+
+
+def src_eu_asetukset(days=14):
+    """Uudet EU-asetukset EU:n virallisessa lehdessä (CELLAR): Euroopan parlamentin ja neuvoston asetukset, neuvoston asetukset ja komission
+    delegoidut asetukset. Komission täytäntöönpanoasetukset (polkumyynti, tekniset) jätetään pois."""
+    since = (now().date() - datetime.timedelta(days=days)).isoformat()
+    res = _sparql(REG_SPARQL % since)
+    keep = []
+    for b in res:
+        title = " ".join(b["title"]["value"].split())
+        if re.match(r"(?i)euroopan parlamentin ja neuvoston asetus|neuvoston asetus|komission delegoitu asetus", title):
+            keep.append((b, title))
+    cel = {b["celex"]["value"] for b, _ in keep}
+    sv, en = _titles_lang(cel, "SWE"), _titles_lang(cel, "ENG")
+    out, seen = [], set()
+    for b, title in keep:
+        celex = b["celex"]["value"]
+        if celex in seen:
+            continue
+        seen.add(celex)
+        num = re.search(r"\(EU\)\s*(\d{4}/\d+)", title)
+        tunnus = f"Asetus (EU) {num.group(1)}" if num else celex
+        laatija = ("komissio (delegoitu)" if re.match(r"(?i)komission", title) else "EP ja neuvosto" if re.match(r"(?i)euroopan parlamentin", title) else "neuvosto")
+        g = lambda k: (b.get(k, {}).get("value") or "")[:10] or None
+        hyv, pub, eif, sov = g("date"), g("pub"), g("eif"), g("trans")
+        kuv = f"Annettu {_pvm_fi(hyv) if hyv else '?'}; julkaistu EUVL:ssä {_pvm_fi(pub) if pub else '?'}"
+        if eif:
+            kuv += f"; voimaan {_pvm_fi(eif)}"
+        if sov and sov != eif:
+            kuv += f"; sovelletaan {_pvm_fi(sov)}"
+        out.append({"kanava": "eu", "url": eurlex_url(celex), "otsikko": title, "otsikko_sv": sv.get(celex), "otsikko_en": en.get(celex),
+                    "tunnus": tunnus, "laatija": laatija, "hyvaksytty": hyv, "julkaistu": pub, "julkaistu_euvl": pub, "voimaantulo": eif, "soveltaminen": sov,
+                    "eli": f"http://data.europa.eu/eli/reg/{num.group(1).split('/')[0]}/{num.group(1).split('/')[1]}/oj" if num else None,
+                    "kuvaus": kuv, "valmis": True, "saados": "asetus"})
+    out.sort(key=lambda x: (0 if x["laatija"] != "komissio (delegoitu)" else 1, x.get("julkaistu") or ""), reverse=False)
+    return out
+
+
+def src_kvl(days=14, max_read=8):
+    """Keskusverolautakunnan ennakkoratkaisut vero.fi:stä: sivukartta kertoo uudet ja päivittyneet ratkaisusivut (lastmod), joista luetaan tunnus,
+    antopäivä, asiasanat, lainvoimaisuus ja lyhennelmän alku."""
+    sm = get_text("https://www.vero.fi/sitemap.xml", timeout=90)
+    since = (now().date() - datetime.timedelta(days=days)).isoformat()
+    urls = [(u, lm) for u, lm in re.findall(r"<loc>([^<]+)</loc>\s*<lastmod>([^<]+)</lastmod>", sm)
+            if "/syventavat-vero-ohjeet/ennakkoratkaisut/" in u and re.search(r"/kvl\d+/?$", u) and lm[:10] >= since]
+    urls.sort(key=lambda x: x[1], reverse=True)
+    d = SCAN_CTX.get("data") or {}
+    known = {norm_url(it.get("lahde")) for _, it in all_items(d)} | {norm_url(a.get("lahde")) for a in d.get("arkisto", [])}
+    out = []
+    for u, lm in urls:
+        if norm_url(u) in known or len(out) >= max_read:
+            continue
+        try:
+            h = get_text(u)
+        except Exception:
+            continue
+        h1 = re.search(r"<h1[^>]*>(.*?)</h1>", h, re.S)
+        tunnus = _plain(h1.group(1)) if h1 else ""
+        body = _plain(h[h1.end():] if h1 else h)
+        anto = re.search(r"Antopäivä\s*(\d{1,2}\.\d{1,2}\.\d{4})", body)
+        dd = re.search(r"<dt>\s*Avainsanat\s*</dt>\s*<dd>(.*?)</dd>", h, re.S)
+        asiasanat = _plain(dd.group(1)) if dd else ""
+        lainv = "Ei lainvoimainen" if "Ei lainvoimainen" in body else ("Lainvoimainen" if "Lainvoimainen" in body else None)
+        kho = re.search(r"KHO[^.]{0,60}\d{1,2}\.\d{1,2}\.\d{4}[^.]{0,80}\.", body)
+        mb = re.search(r'<div class="main-body">(.*?)</article>', h, re.S) or re.search(r"<article[^>]*>(.*?)</article>", h, re.S)
+        teksti = _plain(mb.group(1)) if mb else body
+        teksti = re.split(r"\s(?:Lainvoimainen|Ei lainvoimainen|Sivu on viimeksi päivitetty)\b", teksti)[0]
+        out.append({"kanava": "vero", "url": u, "otsikko": tunnus or u, "tunnus": re.sub(r"^KVL:(\d{4})/(\d+)$", r"KVL:\1/\2", tunnus),
+                    "julkaistu": lm[:10], "annettu": fi_date(anto.group(1)) if anto else None, "asiasanat": asiasanat, "lainvoimainen": lainv,
+                    "kho": kho.group(0) if kho else None, "kuvaus": teksti[:900], "valmis": True, "paivitys_sivukartassa": lm[:16]})
+    return out
+
+
+def _rss_items(url):
+    x = get_text(url)
+    out = []
+    for it in re.findall(r"<item>(.*?)</item>", x, re.S):
+        g = lambda tag: html.unescape(re.sub(r"<!\[CDATA\[|\]\]>", "", (re.search(r"<%s[^>]*>(.*?)</%s>" % (tag, tag), it, re.S) or [None, ""])[1])).strip()
+        link = g("link") or (re.search(r"<link[^>]*/>\s*([^<\s]+)", it) or [None, ""])[1]
+        pub = g("pubDate")
+        try:
+            dt = email.utils.parsedate_to_datetime(pub).astimezone(HKI).strftime("%Y-%m-%dT%H:%M") if pub else None
+        except Exception:
+            dt = None
+        out.append({"url": link.strip(), "otsikko": g("title"), "julkaistu": dt})
+    return out
+
+
+def _lautakunta_page(u):
+    """Lautakunnan ratkaisusivu (WordPress): antopäivä, diaarinumero, asiasanat, lainvoimaisuus, täysistunto ja selostuksen alku."""
+    h = get_text(u)
+    h1 = re.search(r"<h1[^>]*>(.*?)</h1>", h, re.S)
+    body = _plain(h[h1.end():] if h1 else h)
+    anto = re.search(r"Antopäivä\s*(\d{1,2}\.\d{1,2}\.\d{4})", body)
+    return {"annettu": fi_date(anto.group(1)) if anto else None, "diaari": _after(body, "Diaarinumero", 40, stop=[" Aihe", " Syrjintä", " Asiasanat", " Täysistunto", " Antopäivä", " Lainvoima"]),
+            "asiasanat": _after(body, "Asiasanat", 300, stop=[" Asiaselostus", " Lainvoimaisuus", " Hakija", " Kuluttaja", " Lautakunnan"]),
+            "taysistunto": bool(re.search(r"Täysistuntopäätös\s*Kyllä", body)),
+            "lainvoimainen": "Ei lainvoimainen" if "Ei lainvoimainen" in body else ("Lainvoimainen" if re.search(r"Lainvoimaisuus\s*Lainvoimainen", body) else None),
+            "kuvaus": re.sub(r"^.*?(Asiaselostus|Lainvoimaisuus\s+\S+\s+\S+)\s*", "", body[:2500], count=1)[:900]}
+
+
+def src_lautakunta(feed, kanava, elin, max_read=6, vain_taysistunto=False):
+    """Yhdenvertaisuus- ja tasa-arvolautakunta ja kuluttajariitalautakunta: RSS-syöte + ratkaisusivun metatiedot."""
+    d = SCAN_CTX.get("data") or {}
+    known = {norm_url(it.get("lahde")) for _, it in all_items(d)} | {norm_url(a.get("lahde")) for a in d.get("arkisto", [])}
+    seen = set(d.get("_nahty") or [])
+    out, reads = [], 0
+    for x in _rss_items(feed):
+        if not x["url"]:
+            continue
+        x.update({"kanava": kanava, "elin": elin, "valmis": True})
+        if norm_url(x["url"]) in known or url_hash(x["url"]) in seen or reads >= max_read:
+            out.append(x)   # nähty tai luettu jo: pelkkä otsikko riittää (karsitaan scanissa)
+            continue
+        reads += 1
+        try:
+            x.update(_lautakunta_page(x["url"]))
+        except Exception as e:
+            x["virhe"] = str(e)[:80]
+        out.append(x)
+    if vain_taysistunto:
+        out = [x for x in out if x.get("taysistunto") or norm_url(x["url"]) in known or url_hash(x["url"]) in seen]
+    return out
+
+
+def src_eu_kilpailu():
+    """Komission kilpailu- ja valtiontukitiedotteet (presscorner-haku: uusimmat tiedotteet, otsikosta suodatettuna)."""
+    out = []
+    for page in (0, 1):
+        try:
+            data = json.loads(get_text(f"https://ec.europa.eu/commission/presscorner/api/search?language=en&pagesize=100&pagenumber={page}", accept="application/json"))
+        except Exception:
+            break
+        for x in data.get("docuLanguageListResources") or []:
+            title = " ".join((x.get("title") or "").split())
+            if not re.search(r"(?i)^(antitrust|mergers?|state aid|cartel|competition)\b|\b(antitrust|state aid|cartel|fines? .{0,40}(competition|antitrust)|clears (the )?acquisition|prohibits (the )?acquisition|merger)\b", title):
+                continue
+            if re.match(r"(?i)daily news|mergers?: commission (clears|approves) acquisition", title) and not re.search(r"(?i)finland|finnish", title):
+                continue   # yksinkertaistetut hyväksynnät ilman Suomi-kytköstä eivät ole juttuja
+            ref = (x.get("refCode") or "").replace("/", "_").lower()
+            url = f"https://ec.europa.eu/commission/presscorner/detail/en/{ref}" if ref else None
+            if not url:
+                continue
+            kan = "yrityskaupat" if re.match(r"(?i)mergers?", title) else "kilpailu"
+            out.append({"kanava": kan, "url": url, "otsikko": title, "julkaistu": (x.get("eventDate") or "")[:10] or None,
+                        "kuvaus": " ".join((x.get("leadText") or "").split())[:400], "elin": "Euroopan komissio", "valmis": True})
+        if len(data.get("docuLanguageListResources") or []) < 100:
+            break
+    return dedupe(out)
+
+
+ZERO_OK = {"EU-DIR", "NEUVOSTO", "HE", "EU-YK", "EU-ASETUS", "KVL", "YVTLTK", "KRIL", "EU-KILPAILU"}   # lähteet, joilla tyhjä tulos on tavallinen (HE: vain uudet esitykset edellisen ajon jälkeen): ei LÄHDE HILJAA -hälytystä
 
 
 SOURCES = {
@@ -1463,9 +1789,17 @@ SOURCES = {
     "EDPB": src_edpb,
     "EU-DIR": src_eu_direktiivit,   # uudet direktiivit EU:n virallisessa lehdessä (julkaisuhetki)
     "NEUVOSTO": src_neuvosto,       # neuvoston lopullinen hyväksyminen (hyväksymishetki, ennen julkaisua)
+    "KKV-YK": src_kkv_yrityskaupat, # KKV:n yrityskauppapäätökset ja vireillä olevat yrityskaupat
+    "EU-YK": src_eu_yrityskaupat,   # komission yrityskauppavalvonta EUVL:n C-sarjasta: suomalainen osapuoli
+    "EU-ASETUS": src_eu_asetukset,  # uudet EU-asetukset EUVL:ssä (EP ja neuvosto, neuvosto, komission delegoidut)
+    "KVL": src_kvl,                 # keskusverolautakunnan ennakkoratkaisut (vero.fi)
+    "YVTLTK": lambda: src_lautakunta("https://www.yvtltk.fi/feed/rss-feed?post_type=tapausseloste", "muut", "Yhdenvertaisuus- ja tasa-arvolautakunta"),
+    "KRIL": lambda: src_lautakunta("https://www.kuluttajariita.fi/feed/rss-feed?post_type=paatos", "muut", "Kuluttajariitalautakunta", vain_taysistunto=True),
+    "EU-KILPAILU": src_eu_kilpailu, # komission kilpailu- ja valtiontukitiedotteet
 }
 SOURCE_BASE = {"OKV": "finlex", "EOA": "finlex"}   # lähteen perusta vaihtui: linkkimäärän historia aloitetaan alusta (ei väärää HILJAA-hälytystä)
-PER_SOURCE = {"HAO": 10, "HE": 20, "LAUSUNNOT": 20, "TT": 6, "MAO": 6, "EIT": 10, "ICJ": 8, "EUT": 40, "HO": 8, "VakO": 8, "EDPB": 10, "EU-DIR": 20, "NEUVOSTO": 10}
+PER_SOURCE = {"HAO": 10, "HE": 20, "LAUSUNNOT": 20, "TT": 6, "MAO": 6, "EIT": 10, "ICJ": 8, "EUT": 40, "HO": 8, "VakO": 8, "EDPB": 10, "EU-DIR": 20, "NEUVOSTO": 10,
+              "KKV-YK": 12, "EU-YK": 10, "EU-ASETUS": 15, "KVL": 8, "YVTLTK": 6, "KRIL": 6, "EU-KILPAILU": 10}
 
 
 def cmd_scan(p, hours=None, include_seen=False):
@@ -1609,10 +1943,34 @@ def cellar_text(celex, url, maxc, lang="FI"):
     return out
 
 
+def presscorner_text(url, maxc):
+    """Komission presscorner-sivu on JavaScript-sovellus (sivulla ei ole tekstiä); tiedote luetaan sen omasta
+    documents-rajapinnasta (viite ip_26_2178 -> IP/26/2178)."""
+    m = re.search(r"/detail/(\w\w)/([a-z]+)_(\d+)_(\d+)", url)
+    if not m:
+        raise ValueError("presscorner-osoitetta ei tunnistettu")
+    lang, ref = m.group(1), f"{m.group(2).upper()}/{m.group(3)}/{m.group(4)}"
+    src = f"https://ec.europa.eu/commission/presscorner/api/documents?reference={ref}&language={lang}"
+    d = json.loads(fetch(src).decode("utf-8", "replace") or "{}")
+    r = d.get("docuLanguageResource") or {}
+    h = r.get("htmlContent") or ""
+    h = re.sub(r"(?i)<(/p|br|/div|/tr|/h\d|/li)\b[^>]*>", "\n", h)
+    t = html.unescape(re.sub(r"<[^>]+>", " ", h))
+    t = re.sub(r"\n{2,}", "\n", "\n".join(" ".join(l.split()) for l in t.splitlines())).strip()
+    pub = (d.get("publishDate") or r.get("publishDate") or "")[:10] or None
+    out = {"url": url, "otsikko": r.get("title") or "", "julkaistu": pub, "lahde_teksti": src}
+    out["teksti"] = t[:maxc] + (f"\n[… katkaistu, yhteensä {len(t)} merkkiä]" if len(t) > maxc else "")
+    return out
+
+
 def _text(url, maxc):
     api = api_url_for(url)
+    if "ec.europa.eu/commission/presscorner/detail/" in url:
+        return presscorner_text(url, maxc)
     if api and api[0] == "he":
         return he_text(api[1], api[2], url, maxc)
+    if api and api[0] == "pevl":
+        return pevl_text(api[1], api[2], url, maxc)
     if api and api[0] == "hanke":
         return hanke_text(api[1], url, maxc)
     if api and api[0] == "eurlex":
@@ -2049,9 +2407,10 @@ CH_NAMES = {"kko": ("Korkein oikeus", "Högsta domstolen", "Supreme Court"), "eu
             "laillisuus": ("Laillisuusvalvonta", "Laglighetsövervakning", "Oversight of legality"), "hao": ("Hallinto-oikeudet", "Förvaltningsdomstolarna", "Administrative courts"),
             "muut": ("Muut tuomioistuimet", "Övriga domstolar", "Other courts"), "kilpailu": ("Kilpailuoikeus", "Konkurrensrätt", "Competition law"),
             "fiva": ("Finanssivalvonta", "Finansinspektionen", "Financial supervision"), "tsv": ("Tietosuoja", "Dataskydd", "Data protection"),
-            "he": ("Hallituksen esitykset", "Regeringens propositioner", "Government bills"), "lausunnot": ("Lausuntokierrokset", "Remisser", "Consultations")}
+            "he": ("Hallituksen esitykset", "Regeringens propositioner", "Government bills"), "lausunnot": ("Lausuntokierrokset", "Remisser", "Consultations"),
+            "yrityskaupat": ("Yrityskaupat", "Företagsförvärv", "Mergers and acquisitions"), "vero": ("Verotus", "Beskattning", "Taxation")}
 LANGS = ("fi", "sv", "en")
-CH_PAGE = {"kko": 200, "eu": 250, "eit": 260, "icj": 270, "kho": 300, "laillisuus": 350, "hao": 400, "muut": 450, "kilpailu": 500, "fiva": 550, "tsv": 600, "he": 700, "lausunnot": 740}
+CH_PAGE = {"kko": 200, "eu": 250, "eit": 260, "icj": 270, "kho": 300, "laillisuus": 350, "hao": 400, "muut": 450, "kilpailu": 500, "yrityskaupat": 520, "fiva": 550, "tsv": 600, "vero": 650, "he": 700, "lausunnot": 740}
 ARTIFACT_URL = "https://claude.ai/artifact/FzxtiPmCVWQEz2S2vBa7js"
 BASE_URL = ARTIFACT_URL   # feed/digest/viikkokatsaus: --base tai LAKITV_BASE vaihtaa osoitteen (esim. oma sivusto)
 

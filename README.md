@@ -20,8 +20,9 @@
 | 150 | Päivän visa |
 | 190, 199 | Hakemisto, ohje |
 | 198 | Tila: lähteet, ajot, arkisto (lähdevahti) |
-| 200–599 | Tuomioistuimet ja valvojat: KKO, EUT, EIT, ICJ, KHO, OKV/EOA, HAO, muut, KKV, Fiva, TSV |
-| 700–749 | Eduskunta: HE-tulostaulu, hallituksen esitykset, lausuntokierrokset |
+| 200–599 | Tuomioistuimet ja valvojat: KKO, EUT ja EU-säädökset, EIT, ICJ, KHO, OKV/EOA, HAO, muut tuomioistuimet ja lautakunnat (TT, MAO, HO, VakO, KRIL, YVTltk), kilpailu (KKV, komissio), yrityskaupat (520: KKV ja komissio) |
+| 600–699 | Fiva, tietosuoja (TSV, EDPB), verotus (650: keskusverolautakunnan ennakkoratkaisut) |
+| 700–749 | Eduskunta: HE-tulostaulu, hallituksen esitykset ja perustuslakivaliokunnan lausunnot, lausuntokierrokset |
 | 800–801 | Voimaan tulevat lait ja EU-säädökset |
 | 851–869 | Aiheet (sote, tietosuoja, työ, vero, …) |
 | 888 | Viimeksi avattu juttu selkeällä kielellä |
@@ -33,7 +34,7 @@ Sivu ei kerää lukijoista mitään: ei evästeitä, ei tunnisteita, ei analytii
 ## Miten se toimii
 
 ```
-lähteet (KKO, KHO, Finlex, eduskunta, curia, HUDOC, …)
+lähteet (KKO, KHO, Finlex, eduskunta, curia, HUDOC, EUVL, KKV, komissio, vero.fi, …)
         │  tools/lakitv.py scan / text / add / he-update / vt-update
         ▼
    data.json  ──inject──▶  laki-tv.html  (yksi tiedosto: HTML + CSS + JS + data + fontit)
@@ -50,6 +51,7 @@ lähteet (KKO, KHO, Finlex, eduskunta, curia, HUDOC, …)
 
 * **Sivu** on yksi HTML-tiedosto ilman riippuvuuksia. Teksti-TV-moottori piirtää 40×25 merkin sivut datasta selaimessa; kaikki sivut (myös kalenteri, viikon tärkeimmät ja aiheet) lasketaan datasta ajon aikana.
 * **Työkalu** `tools/lakitv.py` (Python 3.10+, vain `lxml` lisäksi) tekee kaiken datan käsittelyn: lähteiden skannauksen, lisäyksen, tarkistuksen (`validate`), arkistoinnin, eduskunnan ja Finlexin avoimen datan päivitykset, syötteet ja koosteet.
+* **Lähteet** (`scan`, 27 lähdettä): KKO ja KHO (finlex.fi), oikeuskanslerin, oikeusasiamiehen ja tietosuojavaltuutetun ratkaisut (Finlexin viranomaisaineisto), KKV:n kilpailu- ja kuluttaja-asiat sekä yrityskauppavalvonnan päätökset ja vireillä olevat kaupat (kkv.fi), työtuomioistuin, markkinaoikeus, hovioikeudet, hallinto-oikeudet ja vakuutusoikeus (tuomioistuimet.fi), yhdenvertaisuus- ja tasa-arvolautakunta ja kuluttajariitalautakunnan täysistuntoratkaisut (RSS), Finanssivalvonta, hallituksen esitykset ja perustuslakivaliokunnan lausunnot (eduskunnan avoin data), lausuntokierrokset (Hankeikkunan rajapinta), EU-tuomioistuin ja unionin yleinen tuomioistuin, uudet direktiivit ja asetukset EUVL:ssä sekä komission yrityskauppailmoitukset, joissa on suomalainen osapuoli (EU:n julkaisutoimiston CELLAR-avoin data), neuvoston hyväksymistiedotteet (RSS), komission kilpailu- ja valtiontukitiedotteet (presscorner-rajapinta), keskusverolautakunnan ennakkoratkaisut (vero.fi:n sivukartta), EDPB, EIT (HUDOC) ja ICJ. `text URL` lukee lähteen tekstin: eduskunnan asiakirjat (HE, PeVL) ja EU-säädökset haetaan avoimen datan rajapinnoista, komission tiedotteet presscornerin documents-rajapinnasta, muut sivulta tai PDF:stä. Lähteet, jotka torjuvat automaattiset haut (oikeuskansleri.fi, oikeusasiamies.fi, tietosuoja.fi, valtioneuvosto.fi ja ministeriöt, lausuntopalvelu.fi), korvataan Finlexin, eduskunnan ja Hankeikkunan avoimella datalla.
 * **Verkkosivusto** on sama sivu julkisessa osoitteessa: `tools/website.py` lisää hakukone- ja jakotiedot (Open Graph -kuva on sivu 100), PWA-manifestin ja service workerin (toimii ilman yhteyttä), oikean `.ics`-kalenterin, RSS-vaihtoehdot, `robots.txt`:n ja sivukartan. `.github/workflows/pages.yml` rakentaa sen tämän varaston koodista ja julkaisee GitHub Pagesiin. Päivitysajo ei koske koodivarastoon lainkaan: se työntää vain `data.json`-tiedoston erilliseen datavarastoon – GitHub-gistiin – (`tools/ghpush.py`, avain rajattu vain gisteihin; työkalu ajaa `validate`-tarkistuksen ennen työntöä), josta työnkulku hakee datan kaksi kertaa tunnissa, tarkistaa sen (`validate`) ja julkaisee vain, jos data on uudempi kuin sivustolla. Lisäksi julkaistu sivu hakee itse gistin uusimman `data.json`-tiedoston ja näyttää sen, jos se on uudempi kuin sivuston kopio – GitHub viivästää ajastettuja ajoja, eikä lukijan tarvitse odottaa niitä. Pystytys: `docs/JULKAISU.md`.
 * **Päivitys** on agentin ajo, jonka ohje on `trigger_prompt.txt`: agentti ajaa työkalun komennot, valitsee juridisesti merkittävät uutuudet, kirjoittaa tiivistelmät ja käännökset, ja julkaisee. Työkalu tarkistaa koneellisesti, ettei agentti keksi mitään: lähteen on vastattava, virallisen tiivistelmän on löydyttävä lähteestä sanatarkasti, ja selkoversion luvut on löydyttävä tekstistä.
 
@@ -89,7 +91,7 @@ GITHUB_TOKEN=… python3 tools/ghpush.py gist:TUNNUS data.json=data.json        
 
 ## Datamalli
 
-Sivun sisällä on `<script type="application/json" id="laki-tv-data">`. Kaava on kuvattu sivun HTML-kommentissa (`part_body.html`). Pääosat: `kanavat` (13 kanavaa, enintään 9 juttua kussakin), `arkisto` (35 pv), `voimaantulot`, `eu_voimaantulot`, `he_tila`, `he_muutokset`, `visa`, `_ajot` ja `_lahteet` (lähdevahti). Ruotsi ja englanti ovat samojen kenttien `_sv`- ja `_en`-päätteisiä versioita; puuttuva käännös näytetään suomeksi ja merkitään.
+Sivun sisällä on `<script type="application/json" id="laki-tv-data">`. Kaava on kuvattu sivun HTML-kommentissa (`part_body.html`). Pääosat: `kanavat` (15 kanavaa, enintään 9 juttua kussakin), `arkisto` (35 pv), `voimaantulot`, `eu_voimaantulot`, `he_tila`, `he_muutokset`, `visa`, `_ajot` ja `_lahteet` (lähdevahti). Ruotsi ja englanti ovat samojen kenttien `_sv`- ja `_en`-päätteisiä versioita; puuttuva käännös näytetään suomeksi ja merkitään.
 
 ## Rajoitukset, jotka kannattaa tietää
 

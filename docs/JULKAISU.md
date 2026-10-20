@@ -54,6 +54,12 @@ mallin Fable 5.1:een, jotta seuraava ajo yrittää taas ensisijaista mallia; jos
 ei kuluta mitään). Pääajon malliin vahti ei koske. Jos koko tilin raja on täynnä, myös Opus-ajot ja vahti itse epäonnistuvat, ja GitHubin
 `vahti.yml` hälyttää sähköpostilla.
 
+## Uuden kanavan tai lähteen lisääminen
+
+Kanava lisätään kolmeen paikkaan: `tools/lakitv.py` (`CH_KEYS`, `CH_NAMES`, `CH_PAGE`), `part_js.html` (`CHANNELS`, `CH_SV`, `CH_EN`, `OWNERS`, kanavaluettelo 190) ja testeihin. Datassa olevan vanhemman `data.json`-tiedoston ei tarvitse tuntea uutta kanavaa: `validate` antaa puuttuvasta kanavasta vain huomautuksen, `prune` lisää sen tyhjänä seuraavassa ajossa, ja sivu näyttää puuttuvan kanavan tyhjänä. Tuntematon kanava-avain on sen sijaan virhe, joten vanha työkalu ei hyväksy uuden kanavan dataa – siksi `tools/lakitv.py.txt` julkaistaan artifaktiin ennen kuin ajo lisää uuteen kanavaan juttuja. Lähde lisätään `SOURCES`-sanakirjaan (ja `PER_SOURCE`-rajaan sekä `ZERO_OK`-joukkoon, jos tyhjä tulos on tavallinen) ja sille kirjoitetaan `test/sources_test.py`-testi tallennetulla näytteellä (`test/fixtures/`), jotta jäsennys voidaan ajaa ilman verkkoa. Ajo-ohjeeseen (`trigger_prompt*.txt`) lisätään valintasäännöt ja kenttien käytännöt; kaikki kolme ajoa päivitetään samalla.
+
+Lokakuussa 2026 lisätyt lähteet: KKV:n yrityskauppavalvonta (päätökset ja vireillä olevat, kanava `yrityskaupat` 520), komission yrityskauppailmoitukset suomalaisella osapuolella (CELLAR, `eu-m-NNNNN`; vastustamatta jättäminen päivittää saman jutun), uudet EU-asetukset EUVL:ssä (CELLAR, kanava `eu`), perustuslakivaliokunnan lausunnot (eduskunnan avoin data, kanava `he`), keskusverolautakunnan ennakkoratkaisut (vero.fi:n sivukartta, kanava `vero` 650), yhdenvertaisuus- ja tasa-arvolautakunta ja kuluttajariitalautakunnan täysistuntoratkaisut (RSS, kanava `muut`) sekä komission kilpailu- ja valtiontukitiedotteet (presscorner-rajapinta; `text` lukee tiedotteen samasta rajapinnasta, koska sivu on JavaScript-sovellus). Ei toteutettu: Fivan ostotarjouspäätöksille ja ostotarjouslautakunnan lausunnoille ei ole koneellisesti luettavaa luetteloa (ajo tarkistaa ne WebSearchilla), ja presscornerin haku ei suodata aiheen mukaan, joten kilpailutiedotteet erotellaan otsikosta.
+
 ## Käsin päivitys
 
 Jos ajo ei pääse GitHubiin, datan voi viedä käsin: `python3 tools/lakitv.py extract laki-tv.html data.json` artifaktin sivusta, ja sisältö gistiin (Edit) – tai tämän varaston `data.json`-tiedostoon, jota työnkulku käyttää varalla, jos gistiä ei saada luettua tai se on vielä tyhjä.

@@ -37,7 +37,7 @@ KIELI: Kielitoimiston ohjeet ja oikeat oikeudelliset termit.
 - eu_voimaantulot: jos seuraavalle 45 päivälle on alle 3 riviä tai kuukausi on vaihtunut, täydennä komission kuukausitiedotteesta "Entry into force or application of EU legislation key milestones" (WebSearch) ja EUR-Lexistä. Kentät: pvm, nimi ≤30 (suomeksi), nimi_sv ≤30, nimi_en ≤30, saados ≤38 (suomeksi, esim. "Asetus (EU) 2024/1689"; sivu kääntää säädöstyypin), laji (sovelletaan, osittain, voimaan tai täytäntöönpano), kuvaus ≤76, kuvaus_sv ≤76 ja kuvaus_en ≤76 (ei suhteellisia sanoja kuten "tänään"), lahde (EUR-Lexin ELI-osoite), aiheet.
 - visa: 5 uutta kysymystä viimeisten 3 päivän jutuista: {kysymys, vaihtoehdot [3], oikea "A"|"B"|"C" (vaihtele), selitys ≤45, ref = kohteen id, kysymys_sv, vaihtoehdot_sv [3 samassa järjestyksessä], selitys_sv ≤45, kysymys_en, vaihtoehdot_en [3, kukin ≤33 merkkiä], selitys_en ≤45}. Yksiselitteisiä ja lähteen mukaan oikein.
 - tiedote, tiedote_sv ja tiedote_en: ≤38 merkkiä ajankohtaista (esim. lähestyvä lausuntoaika) tai poista kaikki kolme.
-- etusivu: yleensä tyhjä. Enintään 3 toimituksen nostoa {ref, otsikko?, otsikko_sv?, otsikko_en?} alle 3 päivää vanhoista, jos tärkeä juttu jäisi muuten piiloon.
+- etusivu: yleensä tyhjä. Enintään 3 toimituksen nostoa {ref, otsikko?, otsikko_sv?, otsikko_en?} tässä tai edellisessä ajossa lisätyistä jutuista, jos tärkeä juttu jäisi muuten kärjen alle. Etusivun pääuutisissa näkyvät vain 24 tunnin sisällä tulleet jutut; nosto lisää painoa, mutta ei pidennä näkyvyyttä.
 - tilastot.he_viimeisin = suurin löytynyt "HE NNN/2026 vp".
 
 4. TARKISTA JA JULKAISE
